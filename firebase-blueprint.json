@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "cities": {
+      "title": "Cities",
+      "description": "Monitored river cities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "normalLevel": { "type": "number" },
+        "attentionLevel": { "type": "number" },
+        "alertLevel": { "type": "number" },
+        "floodLevel": { "type": "number" },
+        "majorFloodLevel": { "type": "number" }
+      },
+      "required": ["id", "name"]
+    },
+    "readings": {
+      "title": "River Readings",
+      "description": "Historical river level measurements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "cityId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "level": { "type": "number" },
+        "dataSource": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "cityId", "timestamp", "level"]
+    },
+    "shelters": {
+      "title": "Shelters",
+      "description": "Shelter locations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "cityId": { "type": "string" },
+        "cityName": { "type": "string" },
+        "capacity": { "type": "number" },
+        "address": { "type": "string" },
+        "contact": { "type": "string" }
+      },
+      "required": ["id", "name", "cityName"]
+    },
+    "shelterReadings": {
+      "title": "Shelter Readings",
+      "description": "Occupancy records for shelters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "shelterId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "peopleCount": { "type": "number" },
+        "familiesCount": { "type": "number" },
+        "dataSource": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "shelterId", "timestamp", "peopleCount"]
+    }
+  }
+}

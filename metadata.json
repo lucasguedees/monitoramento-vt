@@ -1,0 +1,6 @@
+{
+  "name": "Monitoramento de Enchentes - Vale do Taquari",
+  "description": "Sistema de monitoramento e cadastro do nível do Rio Taquari para cidades do Vale do Taquari com gráficos e cotas de alerta.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
