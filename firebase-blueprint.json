@@ -58,6 +58,23 @@
         "notes": { "type": "string" }
       },
       "required": ["id", "shelterId", "timestamp", "peopleCount"]
+    },
+    "videos": {
+      "title": "YouTube Videos",
+      "description": "Shared YouTube videos and live streams",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "youtubeUrl": { "type": "string" },
+        "youtubeId": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "author": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "isFeatured": { "type": "boolean" }
+      },
+      "required": ["id", "title", "youtubeUrl", "youtubeId"]
     }
   }
 }
