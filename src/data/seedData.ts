@@ -1,0 +1,71 @@
+import { RiverReading } from '../types';
+
+/**
+ * Creates seed readings simulating recent river level behavior in Vale do Taquari
+ * with 30-minute intervals over the past 24-36 hours.
+ */
+export function generateInitialSeedReadings(): RiverReading[] {
+  const readings: RiverReading[] = [];
+  const now = new Date();
+  
+  // Base river levels per city in meters
+  const cityBases: Record<string, { base: number; peak: number; phaseShift: number }> = {
+    'mucum': { base: 14.5, peak: 19.8, phaseShift: 0 },
+    'santa-tereza': { base: 8.5, peak: 12.2, phaseShift: 1 },
+    'roca-sales': { base: 7.2, peak: 10.9, phaseShift: 2 },
+    'encantado': { base: 9.0, peak: 13.5, phaseShift: 3 },
+    'arroio-do-meio': { base: 11.0, peak: 16.4, phaseShift: 4 },
+    'lajeado': { base: 12.0, peak: 17.6, phaseShift: 5 },
+  };
+
+  const totalPoints = 36; // last 18 hours in 30-min increments
+  let counter = 1;
+
+  for (let i = totalPoints; i >= 0; i--) {
+    const timeOffsetMs = i * 30 * 60 * 1000;
+    const pointDate = new Date(now.getTime() - timeOffsetMs);
+    
+    // Round to nearest 30 mins
+    const mins = pointDate.getMinutes() < 30 ? 0 : 30;
+    pointDate.setMinutes(mins, 0, 0);
+
+    const year = pointDate.getFullYear();
+    const month = String(pointDate.getMonth() + 1).padStart(2, '0');
+    const day = String(pointDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    const hh = String(pointDate.getHours()).padStart(2, '0');
+    const mm = String(pointDate.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
+
+    const timestamp = `${dateStr}T${timeStr}`;
+
+    Object.entries(cityBases).forEach(([cityId, params]) => {
+      // Simulate river rising curve (hydrograph wave passing through valley)
+      const t = (totalPoints - i + params.phaseShift) / totalPoints;
+      // Normal bell curve rise & slow decline
+      const wave = Math.sin(Math.min(Math.PI, t * Math.PI));
+      const variation = (params.peak - params.base) * wave;
+      const noise = (Math.random() - 0.5) * 0.15;
+      
+      const level = Number((params.base + variation + noise).toFixed(2));
+
+      let note = '';
+      if (i === 18) note = 'Início de precipitação intensa na cabeceira';
+      if (i === 6) note = 'Pico de elevação registrado';
+
+      readings.push({
+        id: `seed-${cityId}-${counter++}`,
+        cityId,
+        timestamp,
+        dateStr,
+        timeStr,
+        levelMeters: Math.max(1.0, level),
+        notes: note,
+        createdAt: pointDate.toISOString(),
+      });
+    });
+  }
+
+  return readings;
+}
