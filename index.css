@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt;
+  }
+
+  .no-print,
+  .print\:hidden,
+  button,
+  header nav,
+  input,
+  select,
+  .backdrop-blur-md {
+    display: none !important;
+  }
+
+  .bg-slate-950,
+  .bg-slate-900,
+  .bg-slate-800 {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300 {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  .border-slate-800,
+  .border-slate-700 {
+    border-color: #cbd5e1 !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    color: #0f172a !important;
+  }
+
+  body::before {
+    content: "RELATÓRIO DE MONITORAMENTO HIDROLÓGICO E ABRIGOS - RS";
+    display: block;
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #0284c7;
+    color: #0284c7;
+  }
+}
