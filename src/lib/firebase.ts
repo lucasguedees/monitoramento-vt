@@ -17,6 +17,22 @@ export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestore
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
+// Utility function to remove undefined fields recursively so setDoc doesn't fail
+function removeUndefinedFields<T>(obj: T): T {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(removeUndefinedFields) as unknown as T;
+
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = typeof value === 'object' && value !== null
+        ? removeUndefinedFields(value)
+        : value;
+    }
+  }
+  return cleaned as T;
+}
+
 // Helper to subscribe to Firestore collection with automatic initial seeding
 export function subscribeCollection<T extends { id: string }>(
   collectionName: string,
@@ -34,7 +50,7 @@ export function subscribeCollection<T extends { id: string }>(
           const batch = writeBatch(db);
           initialSeed.forEach((item) => {
             const itemRef = doc(db, collectionName, item.id);
-            batch.set(itemRef, item);
+            batch.set(itemRef, removeUndefinedFields(item));
           });
           await batch.commit();
           console.log(`[Firebase] Successfully seeded '${collectionName}'`);
@@ -57,8 +73,15 @@ export function subscribeCollection<T extends { id: string }>(
 
 // CRUD Helpers
 export async function saveDocument<T extends { id: string }>(collectionName: string, data: T): Promise<void> {
-  const docRef = doc(db, collectionName, data.id);
-  await setDoc(docRef, data, { merge: true });
+  try {
+    const docRef = doc(db, collectionName, data.id);
+    const cleanedData = removeUndefinedFields(data);
+    await setDoc(docRef, cleanedData);
+    console.log(`[Firebase] Document successfully saved to '${collectionName}' (ID: ${data.id})`);
+  } catch (err) {
+    console.error(`[Firebase] Error saving document to '${collectionName}' (ID: ${data.id}):`, err);
+    throw err;
+  }
 }
 
 export async function deleteDocument(collectionName: string, id: string): Promise<void> {

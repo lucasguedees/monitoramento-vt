@@ -13,7 +13,7 @@ interface CityOverviewCardsProps {
   isAdminAuthorized?: boolean;
 }
 
-export const CityOverviewCards: React.FC<CityOverviewCardsProps> = ({
+const CityOverviewCardsComponent: React.FC<CityOverviewCardsProps> = ({
   cities,
   readings,
   selectedCityId,
@@ -216,3 +216,5 @@ export const CityOverviewCards: React.FC<CityOverviewCardsProps> = ({
     </div>
   );
 };
+
+export const CityOverviewCards = React.memo(CityOverviewCardsComponent);

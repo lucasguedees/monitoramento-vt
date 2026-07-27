@@ -24,7 +24,7 @@ interface ShelterChartProps {
 
 type ChartMetric = 'people' | 'families';
 
-export const ShelterChart: React.FC<ShelterChartProps> = ({
+const ShelterChartComponent: React.FC<ShelterChartProps> = ({
   shelters,
   readings,
   selectedCity = 'all',
@@ -334,6 +334,7 @@ export const ShelterChart: React.FC<ShelterChartProps> = ({
                 }
                 dot={{ r: 4, fill: '#6366f1', strokeWidth: 1 }}
                 activeDot={{ r: 7, fill: '#a5b4fc', stroke: '#4f46e5', strokeWidth: 2 }}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -343,3 +344,5 @@ export const ShelterChart: React.FC<ShelterChartProps> = ({
     </div>
   );
 };
+
+export const ShelterChart = React.memo(ShelterChartComponent);

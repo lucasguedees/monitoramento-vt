@@ -25,9 +25,9 @@ import { generateInitialSeedReadings } from './data/seedData';
 import { DEFAULT_SHELTERS, DEFAULT_DATA_SOURCES, generateInitialShelterReadings } from './data/shelterSeedData';
 import { DEFAULT_VIDEOS } from './data/defaultVideos';
 
-import { calculateCalculatedReadings } from './utils/riverUtils';
+import { calculateCalculatedReadings, deduplicateReadings } from './utils/riverUtils';
 import { calculateCalculatedShelterReadings } from './utils/shelterUtils';
-import { Info, Plus, Home, Waves, Users, Building2, Lock, CloudCheck } from 'lucide-react';
+import { Info, Plus, Home, Waves, Users, Building2, Lock, CloudCheck, RefreshCw } from 'lucide-react';
 import {
   subscribeCollection,
   saveDocument,
@@ -157,6 +157,18 @@ export default function App() {
     const unsubPin = subscribeAppConfig('adminPin', (val) => {
       if (val) setAdminPin(val);
     });
+    const unsubSources = subscribeAppConfig('dataSources', (val) => {
+      if (val) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDataSources(parsed);
+          }
+        } catch (e) {
+          console.error('Error parsing dataSources from Firebase config:', e);
+        }
+      }
+    });
 
     return () => {
       unsubCities();
@@ -165,6 +177,7 @@ export default function App() {
       unsubShelterReadings();
       unsubVideos();
       unsubPin();
+      unsubSources();
     };
   }, []);
 
@@ -252,10 +265,100 @@ export default function App() {
     }
   };
 
-  // --- River Handlers ---
+  // --- River Handlers & Auto-Sync ---
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastAutoSyncedAt, setLastAutoSyncedAt] = useState<string | null>(null);
+
+  const performSilentAutoSync = async (isManual = false) => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/sync-river');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.readings) && data.readings.length > 0) {
+        setReadings(prev => {
+          let updated = [...prev];
+          data.readings.forEach((newR: any) => {
+            // Check for existing reading for same city and date/time
+            const existingIdx = updated.findIndex(
+              r => r.cityId === newR.cityId &&
+                   r.dateStr === newR.dateStr &&
+                   r.timeStr === newR.timeStr
+            );
+
+            if (existingIdx !== -1) {
+              // Update existing in place with official synced reading
+              updated[existingIdx] = {
+                ...updated[existingIdx],
+                levelMeters: newR.levelMeters,
+                notes: newR.notes || `Sincronizado via ${newR.source}`,
+                timestamp: newR.timestamp,
+              };
+              saveDocument('readings', updated[existingIdx]).catch(console.error);
+            } else {
+              // Add new reading item
+              const item: RiverReading = {
+                id: `river-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                cityId: newR.cityId,
+                timestamp: newR.timestamp,
+                dateStr: newR.dateStr,
+                timeStr: newR.timeStr,
+                levelMeters: newR.levelMeters,
+                notes: newR.notes || `Sincronizado via ${newR.source}`,
+                createdAt: new Date().toISOString(),
+              };
+              updated = [item, ...updated];
+              saveDocument('readings', item).catch(console.error);
+            }
+          });
+
+          // Perform deduplication pass to ensure single reading per city per 15-min slot
+          return deduplicateReadings(updated);
+        });
+
+        const nowTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        setLastAutoSyncedAt(nowTime);
+
+        if (isManual) {
+          alert(`Sincronização concluída!\n\n${data.message}`);
+        }
+      } else if (isManual) {
+        alert('Não foi possível obter os dados automatizados no momento.');
+      }
+    } catch (err) {
+      console.error('Erro na sincronização:', err);
+      if (isManual) {
+        alert('Erro ao conectar ao serviço de captura automatizada de medições.');
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Automated background sync effect (initial fetch on load + every 10 minutes)
+  useEffect(() => {
+    performSilentAutoSync(false);
+
+    const interval = setInterval(() => {
+      performSilentAutoSync(false);
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSyncAutomatedReadings = () => {
+    requireAdminAuth('Sincronizar medições automatizadas dos rios', () => {
+      performSilentAutoSync(true);
+    });
+  };
+
   const handleSaveReading = (readingData: Omit<RiverReading, 'id' | 'createdAt'> & { id?: string }) => {
+    const existing = readingData.id ? readings.find(r => r.id === readingData.id) : undefined;
     const itemToSave: RiverReading = readingData.id
-      ? (readingData as RiverReading)
+      ? {
+          ...existing,
+          ...readingData,
+          createdAt: existing?.createdAt || new Date().toISOString(),
+        } as RiverReading
       : {
           ...readingData,
           id: `reading-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -301,17 +404,21 @@ export default function App() {
   };
 
   const handleAddCity = (cityData: Omit<City, 'id'>) => {
-    const newCity: City = {
-      ...cityData,
-      id: `city-${Date.now()}-${cityData.name.toLowerCase().replace(/\s+/g, '-')}`,
-    };
-    setCities(prev => [...prev, newCity]);
-    saveDocument('cities', newCity).catch(console.error);
+    requireAdminAuth('Adicionar Cidade', () => {
+      const newCity: City = {
+        ...cityData,
+        id: `city-${Date.now()}-${cityData.name.toLowerCase().replace(/\s+/g, '-')}`,
+      };
+      setCities(prev => [...prev, newCity]);
+      saveDocument('cities', newCity).catch(console.error);
+    });
   };
 
   const handleUpdateCity = (updatedCity: City) => {
-    setCities(prev => prev.map(c => (c.id === updatedCity.id ? updatedCity : c)));
-    saveDocument('cities', updatedCity).catch(console.error);
+    requireAdminAuth('Atualizar Cota da Cidade', () => {
+      setCities(prev => prev.map(c => (c.id === updatedCity.id ? updatedCity : c)));
+      saveDocument('cities', updatedCity).catch(console.error);
+    });
   };
 
   const handleDeleteCity = (cityId: string) => {
@@ -331,39 +438,62 @@ export default function App() {
 
   // --- Shelter Handlers ---
   const handleSaveShelter = (shelterData: Omit<Shelter, 'id' | 'createdAt'> & { id?: string }) => {
-    const itemToSave: Shelter = shelterData.id
-      ? (shelterData as Shelter)
-      : {
-          ...shelterData,
-          id: `shelter-${Date.now()}-${shelterData.name.toLowerCase().replace(/\s+/g, '-')}`,
-          createdAt: new Date().toISOString(),
-        };
+    requireAdminAuth('Salvar Cadastro de Abrigo', () => {
+      const existing = shelterData.id ? shelters.find(s => s.id === shelterData.id) : undefined;
+      const itemToSave: Shelter = shelterData.id
+        ? {
+            ...existing,
+            ...shelterData,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+          } as Shelter
+        : {
+            ...shelterData,
+            id: `shelter-${Date.now()}-${shelterData.name.toLowerCase().replace(/\s+/g, '-')}`,
+            createdAt: new Date().toISOString(),
+          };
 
-    setShelters(prev =>
-      prev.some(s => s.id === itemToSave.id)
-        ? prev.map(s => (s.id === itemToSave.id ? itemToSave : s))
-        : [...prev, itemToSave]
-    );
+      setShelters(prev =>
+        prev.some(s => s.id === itemToSave.id)
+          ? prev.map(s => (s.id === itemToSave.id ? itemToSave : s))
+          : [...prev, itemToSave]
+      );
 
-    saveDocument('shelters', itemToSave).catch(console.error);
+      saveDocument('shelters', itemToSave).catch(console.error);
+    });
+  };
+
+  const handleDeleteShelter = (shelterId: string) => {
+    const shelter = shelters.find(s => s.id === shelterId);
+    if (!shelter) return;
+    requireAdminAuth(`Excluir abrigo "${shelter.name}"`, () => {
+      setShelters(prev => prev.filter(s => s.id !== shelterId));
+      deleteDocument('shelters', shelterId).catch(console.error);
+    });
   };
 
   const handleSaveShelterReading = (readingData: Omit<ShelterReading, 'id' | 'createdAt'> & { id?: string }) => {
-    const itemToSave: ShelterReading = readingData.id
-      ? (readingData as ShelterReading)
-      : {
-          ...readingData,
-          id: `shelter-reading-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          createdAt: new Date().toISOString(),
-        };
+    requireAdminAuth('Salvar Registro de Abrigo', () => {
+      const existing = readingData.id ? shelterReadings.find(r => r.id === readingData.id) : undefined;
+      const itemToSave: ShelterReading = readingData.id
+        ? {
+            ...existing,
+            ...readingData,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+          } as ShelterReading
+        : {
+            ...readingData,
+            id: `shelter-reading-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            createdAt: new Date().toISOString(),
+          };
 
-    setShelterReadings(prev =>
-      prev.some(r => r.id === itemToSave.id)
-        ? prev.map(r => (r.id === itemToSave.id ? itemToSave : r))
-        : [itemToSave, ...prev]
-    );
+      setShelterReadings(prev =>
+        prev.some(r => r.id === itemToSave.id)
+          ? prev.map(r => (r.id === itemToSave.id ? itemToSave : r))
+          : [itemToSave, ...prev]
+      );
 
-    saveDocument('shelterReadings', itemToSave).catch(console.error);
+      saveDocument('shelterReadings', itemToSave).catch(console.error);
+    });
   };
 
   const handleDeleteShelterReading = (readingId: string) => {
@@ -382,14 +512,21 @@ export default function App() {
 
   const handleAddNewDataSource = (newSource: string) => {
     if (!dataSources.includes(newSource)) {
-      setDataSources(prev => [...prev, newSource]);
+      const updated = [...dataSources, newSource];
+      setDataSources(updated);
+      saveAppConfig('dataSources', JSON.stringify(updated)).catch(console.error);
     }
   };
 
   // --- YouTube Video Handlers ---
   const handleSaveVideo = (videoData: Omit<YouTubeVideo, 'id' | 'createdAt'> & { id?: string }) => {
+    const existing = videoData.id ? videos.find(v => v.id === videoData.id) : undefined;
     const itemToSave: YouTubeVideo = videoData.id
-      ? (videoData as YouTubeVideo)
+      ? {
+          ...existing,
+          ...videoData,
+          createdAt: existing?.createdAt || new Date().toISOString(),
+        } as YouTubeVideo
       : {
           ...videoData,
           id: `video-${Date.now()}-${videoData.youtubeId}`,
@@ -518,19 +655,31 @@ export default function App() {
   };
 
   const handleOpenShelterReadingModal = (shelterId?: string) => {
-    setEditingShelterReading(null);
-    setPreselectedShelterForModal(shelterId || selectedShelterId || shelters[0]?.id || null);
-    setIsShelterReadingModalOpen(true);
+    requireAdminAuth('Lançar Ocupantes e Nível do Abrigo', () => {
+      setEditingShelterReading(null);
+      setPreselectedShelterForModal(shelterId || selectedShelterId || shelters[0]?.id || null);
+      setIsShelterReadingModalOpen(true);
+    });
   };
 
   const handleOpenNewShelterModal = () => {
-    setEditingShelter(null);
-    setIsShelterModalOpen(true);
+    requireAdminAuth('Cadastrar Novo Abrigo', () => {
+      setEditingShelter(null);
+      setIsShelterModalOpen(true);
+    });
   };
 
   const handleOpenEditShelterModal = (shelter: Shelter) => {
-    setEditingShelter(shelter);
-    setIsShelterModalOpen(true);
+    requireAdminAuth(`Editar Abrigo "${shelter.name}"`, () => {
+      setEditingShelter(shelter);
+      setIsShelterModalOpen(true);
+    });
+  };
+
+  const handleOpenNewCityModal = () => {
+    requireAdminAuth('Gerenciar Cidades e Cotas de Alerta', () => {
+      setIsCityModalOpen(true);
+    });
   };
 
   const handleOpenNewVideoModal = () => {
@@ -548,7 +697,7 @@ export default function App() {
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         onOpenNewReadingModal={handleOpenNewReadingModalGeneral}
-        onOpenNewCityModal={() => setIsCityModalOpen(true)}
+        onOpenNewCityModal={handleOpenNewCityModal}
         onOpenNewShelterReadingModal={() => handleOpenShelterReadingModal()}
         onOpenNewShelterModal={handleOpenNewShelterModal}
         onOpenNewVideoModal={handleOpenNewVideoModal}
@@ -587,14 +736,44 @@ export default function App() {
                 </div>
               </div>
 
-              <button
-                onClick={handleOpenNewReadingModalGeneral}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer"
-                title="Lançar Nível do Rio (Manual ou CSV)"
-              >
-                <Plus className="w-4 h-4" />
-                Lançar Nível
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl font-medium shadow-inner">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span>Auto-Sync (a cada 10 min) {lastAutoSyncedAt ? `• ${lastAutoSyncedAt}` : ''}</span>
+                </div>
+
+                <button
+                  onClick={handleSyncAutomatedReadings}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Sincronizar medições automaticamente das estações de monitoramento (Lajeado, Arroio do Meio, Encantado, Muçum, Roca Sales, Santa Tereza)"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
+                </button>
+
+                <button
+                  onClick={handleOpenNewReadingModalGeneral}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer active:scale-95"
+                  title="Lançar Nível do Rio (Manual ou CSV)"
+                >
+                  <Plus className="w-4 h-4" />
+                  Lançar Nível
+                </button>
+
+                <button
+                  id="btn-open-city-modal"
+                  onClick={handleOpenNewCityModal}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Gerenciar Cidades e Cotas de Alerta"
+                >
+                  <Building2 className="w-4 h-4 text-cyan-400" />
+                  <span>Gerenciar Cidades e Cotas</span>
+                </button>
+              </div>
             </div>
 
             {/* River Stats Strip */}
@@ -607,7 +786,7 @@ export default function App() {
               selectedCityId={selectedCityId}
               onSelectCity={setSelectedCityId}
               onOpenReadingModalForCity={handleOpenModalForCity}
-              onOpenCityModal={() => setIsCityModalOpen(true)}
+              onOpenCityModal={handleOpenNewCityModal}
               isAdminAuthorized={isAdminAuthorized}
             />
 
@@ -626,6 +805,8 @@ export default function App() {
               onEditReading={handleEditReading}
               onDeleteReading={handleDeleteReading}
               onExportCSV={handleExportCSV}
+              onSyncAutomatedReadings={handleSyncAutomatedReadings}
+              isSyncing={isSyncing}
               isAdminAuthorized={isAdminAuthorized}
             />
 
@@ -690,6 +871,7 @@ export default function App() {
               onOpenReadingModal={handleOpenShelterReadingModal}
               onOpenEditShelterModal={handleOpenEditShelterModal}
               onOpenNewShelterModal={handleOpenNewShelterModal}
+              onDeleteShelter={handleDeleteShelter}
               isAdminAuthorized={isAdminAuthorized}
             />
 

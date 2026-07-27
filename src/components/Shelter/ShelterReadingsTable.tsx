@@ -28,7 +28,7 @@ interface ShelterReadingsTableProps {
   isAdminAuthorized?: boolean;
 }
 
-export const ShelterReadingsTable: React.FC<ShelterReadingsTableProps> = ({
+const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
   readings,
   shelters,
   selectedCity = 'all',
@@ -114,17 +114,15 @@ export const ShelterReadingsTable: React.FC<ShelterReadingsTableProps> = ({
               title="Exportar dados históricos de abrigos em CSV"
             >
               <Download className="w-4 h-4 text-slate-400" />
-              Exportar CSV
+              CSV
             </button>
 
-            {isAdminAuthorized && (
-              <button
-                onClick={onOpenNewReadingModal}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
-              >
-                + Novo Registro
-              </button>
-            )}
+            <button
+              onClick={onOpenNewReadingModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+            >
+              + Novo Registro
+            </button>
           </div>
         </div>
 
@@ -303,3 +301,5 @@ export const ShelterReadingsTable: React.FC<ShelterReadingsTableProps> = ({
     </div>
   );
 };
+
+export const ShelterReadingsTable = React.memo(ShelterReadingsTableComponent);

@@ -17,12 +17,14 @@ export function generateStandardTimeSlots(): string[] {
 }
 
 /**
- * Determines alert status based on river level and city threshold limits
+ * Determines alert status based on river level and city threshold limits.
+ * If atencao or alerta thresholds are set to 0 (zeradas), they are ignored
+ * and status relies on the remaining non-zero thresholds (e.g. inundacao).
  */
 export function getAlertStatus(level: number, thresholds: CityThresholds): AlertStatus {
-  if (level >= thresholds.inundacao) return 'inundacao';
-  if (level >= thresholds.alerta) return 'alerta';
-  if (level >= thresholds.atencao) return 'atencao';
+  if (thresholds.inundacao > 0 && level >= thresholds.inundacao) return 'inundacao';
+  if (thresholds.alerta > 0 && level >= thresholds.alerta) return 'alerta';
+  if (thresholds.atencao > 0 && level >= thresholds.atencao) return 'atencao';
   return 'normal';
 }
 
@@ -76,14 +78,47 @@ export function getStatusBadgeStyle(status: AlertStatus): { bg: string; text: st
 }
 
 /**
+ * Deduplicates readings for the same city on the same date/time bucket (15 min window)
+ * prioritizing real auto-synced readings over seed readings.
+ */
+export function deduplicateReadings(readings: RiverReading[]): RiverReading[] {
+  const sorted = [...readings].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const resultMap = new Map<string, RiverReading>();
+
+  for (const r of sorted) {
+    if (!r || !r.cityId || !r.dateStr || !r.timeStr) continue;
+    const parts = r.timeStr.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const bucketMins = isNaN(m) ? 0 : Math.floor(m / 15) * 15;
+    const bucketHH = isNaN(h) ? '00' : String(h).padStart(2, '0');
+    const bucketMM = String(bucketMins).padStart(2, '0');
+    const bucketKey = `${r.cityId}_${r.dateStr}_${bucketHH}:${bucketMM}`;
+
+    if (!resultMap.has(bucketKey)) {
+      resultMap.set(bucketKey, r);
+    } else {
+      const existing = resultMap.get(bucketKey)!;
+      // Prefer real synced reading over seed reading
+      if (existing.id.startsWith('seed-') && !r.id.startsWith('seed-')) {
+        resultMap.set(bucketKey, r);
+      }
+    }
+  }
+
+  return Array.from(resultMap.values());
+}
+
+/**
  * Calculates rate of variation (in meters per hour) for sorted readings
  */
 export function calculateCalculatedReadings(readings: RiverReading[], cities: City[]): CalculatedReading[] {
   const cityMap = new Map(cities.map(c => [c.id, c]));
+  const cleanReadings = deduplicateReadings(readings);
   
   // Group readings by city
   const byCity = new Map<string, RiverReading[]>();
-  readings.forEach(r => {
+  cleanReadings.forEach(r => {
     if (!byCity.has(r.cityId)) byCity.set(r.cityId, []);
     byCity.get(r.cityId)!.push(r);
   });

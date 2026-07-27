@@ -250,7 +250,7 @@ export function generateInitialShelterReadings(): ShelterReading[] {
     cfg.progression.forEach((step, idx) => {
       const { timestamp, dateStr, timeStr } = getTimestamp(step.hoursAgo);
       readings.push({
-        id: `shelter-reading-${cfg.shelterId}-${idx}-${Date.now()}`,
+        id: `shelter-reading-${cfg.shelterId}-${idx}`,
         shelterId: cfg.shelterId,
         timestamp,
         dateStr,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { City, RiverReading } from '../types';
 import { generateStandardTimeSlots, getTodayDateStr, getCurrentTimeNearest30, getAlertStatus, getStatusLabel, getStatusBadgeStyle } from '../utils/riverUtils';
-import { X, Clock, Calendar, Building2, Ruler, FileText, Plus, AlertTriangle, CheckCircle2, Save, FileSpreadsheet, Upload, Download, Info } from 'lucide-react';
+import { X, Clock, Calendar, Building2, Ruler, FileText, Plus, AlertTriangle, CheckCircle2, Save, FileSpreadsheet, Upload, Download, Info, RefreshCw } from 'lucide-react';
 
 interface ReadingFormModalProps {
   isOpen: boolean;
@@ -32,6 +32,29 @@ export const ReadingFormModal: React.FC<ReadingFormModalProps> = ({
   const [timeStr, setTimeStr] = useState<string>(getCurrentTimeNearest30());
   const [levelMeters, setLevelMeters] = useState<string>('12.50');
   const [notes, setNotes] = useState<string>('');
+  const [isFetchingAuto, setIsFetchingAuto] = useState<boolean>(false);
+
+  const handleFetchAutoStation = async () => {
+    setIsFetchingAuto(true);
+    try {
+      const res = await fetch('/api/sync-river');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.readings) && data.readings.length > 0) {
+        const match = data.readings.find((r: any) => r.cityId === cityId) || data.readings[0];
+        if (match) {
+          setLevelMeters(match.levelMeters.toFixed(2));
+          setNotes(`Medição capturada via ${match.source}`);
+        }
+      } else {
+        alert('Não foi possível obter a medição automática no momento.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro de conexão ao buscar dados das estações de telemetria.');
+    } finally {
+      setIsFetchingAuto(false);
+    }
+  };
 
   // CSV import states
   const [csvFileName, setCsvFileName] = useState<string>('');
@@ -401,10 +424,23 @@ export const ReadingFormModal: React.FC<ReadingFormModalProps> = ({
 
               {/* River Meter Gauge Input */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Ruler className="w-4 h-4 text-cyan-600" />
-                  Metragem do Rio (em metros)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Ruler className="w-4 h-4 text-cyan-600" />
+                    Metragem do Rio (em metros)
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleFetchAutoStation}
+                    disabled={isFetchingAuto}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 hover:underline cursor-pointer disabled:opacity-50"
+                    title="Obter valor automaticamente da estação de telemetria da cidade selecionada"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isFetchingAuto ? 'animate-spin' : ''}`} />
+                    <span>Capturar Nível (Auto)</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">

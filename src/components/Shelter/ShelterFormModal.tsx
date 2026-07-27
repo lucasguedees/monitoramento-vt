@@ -19,6 +19,7 @@ export const ShelterFormModal: React.FC<ShelterFormModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [cityId, setCityId] = useState('');
+  const [customCityName, setCustomCityName] = useState('');
   const [address, setAddress] = useState('');
   const [contact, setContact] = useState('');
   const [status, setStatus] = useState<ShelterStatus>('ativo');
@@ -27,12 +28,14 @@ export const ShelterFormModal: React.FC<ShelterFormModalProps> = ({
     if (editingShelter) {
       setName(editingShelter.name);
       setCityId(editingShelter.cityId);
+      setCustomCityName(editingShelter.cityName || '');
       setAddress(editingShelter.address || '');
       setContact(editingShelter.contact || '');
       setStatus(editingShelter.status);
     } else {
       setName('');
       setCityId(cities[0]?.id || 'lajeado');
+      setCustomCityName('');
       setAddress('');
       setContact('');
       setStatus('ativo');
@@ -51,13 +54,27 @@ export const ShelterFormModal: React.FC<ShelterFormModalProps> = ({
       alert('Selecione um município.');
       return;
     }
-    const selectedCity = cities.find(c => c.id === cityId);
+
+    let finalCityId = cityId;
+    let finalCityName = '';
+
+    if (cityId === 'outro_custom') {
+      if (!customCityName.trim()) {
+        alert('Por favor, informe o nome do novo município.');
+        return;
+      }
+      finalCityName = customCityName.trim();
+      finalCityId = customCityName.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-');
+    } else {
+      const selectedCity = cities.find(c => c.id === cityId);
+      finalCityName = selectedCity ? selectedCity.name : 'Cidade';
+    }
 
     onSaveShelter({
       id: editingShelter ? editingShelter.id : undefined,
       name: name.trim(),
-      cityId,
-      cityName: selectedCity ? selectedCity.name : 'Cidade',
+      cityId: finalCityId,
+      cityName: finalCityName,
       address: address.trim(),
       contact: contact.trim(),
       status,
@@ -129,7 +146,21 @@ export const ShelterFormModal: React.FC<ShelterFormModalProps> = ({
                     {c.name}
                   </option>
                 ))}
+                <option value="outro_custom">+ Outro Município...</option>
               </select>
+
+              {cityId === 'outro_custom' && (
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Digite o nome do município"
+                    value={customCityName}
+                    onChange={e => setCustomCityName(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-indigo-500 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

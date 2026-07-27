@@ -8,20 +8,20 @@ export function generateInitialSeedReadings(): RiverReading[] {
   const readings: RiverReading[] = [];
   const now = new Date();
   
-  // Base river levels per city in meters
+  // Base river levels per city in meters matching current real data
   const cityBases: Record<string, { base: number; peak: number; phaseShift: number }> = {
-    'mucum': { base: 14.5, peak: 19.8, phaseShift: 0 },
-    'santa-tereza': { base: 8.5, peak: 12.2, phaseShift: 1 },
-    'roca-sales': { base: 7.2, peak: 10.9, phaseShift: 2 },
-    'encantado': { base: 9.0, peak: 13.5, phaseShift: 3 },
-    'arroio-do-meio': { base: 11.0, peak: 16.4, phaseShift: 4 },
-    'lajeado': { base: 12.0, peak: 17.6, phaseShift: 5 },
+    'lajeado': { base: 13.2, peak: 13.8, phaseShift: 0 },
+    'arroio-do-meio': { base: 13.2, peak: 13.8, phaseShift: 0 },
+    'roca-sales': { base: 7.2, peak: 7.8, phaseShift: 2 },
+    'santa-tereza': { base: 4.8, peak: 5.2, phaseShift: 3 },
+    'mucum': { base: 4.5, peak: 4.9, phaseShift: 4 },
+    'encantado': { base: 3.1, peak: 3.4, phaseShift: 5 },
   };
 
   const totalPoints = 36; // last 18 hours in 30-min increments
   let counter = 1;
 
-  for (let i = totalPoints; i >= 0; i--) {
+  for (let i = totalPoints; i >= 1; i--) {
     const timeOffsetMs = i * 30 * 60 * 1000;
     const pointDate = new Date(now.getTime() - timeOffsetMs);
     

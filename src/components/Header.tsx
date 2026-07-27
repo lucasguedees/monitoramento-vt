@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2 } from 'lucide-react';
+import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2, Camera } from 'lucide-react';
 import { CalculatedReading, City, CalculatedShelterReading, Shelter } from '../types';
 
 interface HeaderProps {
@@ -41,45 +41,41 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdminAuth,
   onLogoutAdmin,
 }) => {
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isCapturingScreen, setIsCapturingScreen] = useState(false);
 
-  const handleExportPDF = async () => {
-    if (isExportingPDF) return;
-    setIsExportingPDF(true);
+  const handleTakePrintscreen = async () => {
+    if (isCapturingScreen) return;
+    setIsCapturingScreen(true);
     try {
       const targetElement = document.getElementById('main-content') || document.getElementById('root') || document.body;
-      const html2pdfModule = await import('html2pdf.js');
-      // @ts-ignore
-      const html2pdfFn = (html2pdfModule.default || html2pdfModule) as any;
+      const html2canvasModule = await import('html2canvas');
+      const html2canvasFn = (html2canvasModule.default || html2canvasModule) as any;
 
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `relatorio-monitoramento-${activeTab}-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 1.5,
-          useCORS: true,
-          logging: false,
-          ignoreElements: (element: Element) => {
-            return (
-              element.tagName === 'IFRAME' ||
-              element.classList.contains('no-print')
-            );
-          }
+      const canvas = await html2canvasFn(targetElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        ignoreElements: (element: Element) => {
+          return (
+            element.tagName === 'IFRAME' ||
+            element.classList.contains('no-print')
+          );
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
+        windowWidth: targetElement.scrollWidth,
+        windowHeight: targetElement.scrollHeight,
+      });
 
-      await html2pdfFn().set(opt).from(targetElement).save();
+      const image = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.download = `printscreen-monitoramento-${activeTab}-${dateStr}.png`;
+      link.href = image;
+      link.click();
     } catch (err) {
-      console.error('Erro ao exportar PDF com html2pdf, tentando window.print():', err);
-      try {
-        window.print();
-      } catch (e) {
-        alert('Não foi possível gerar o PDF automaticamente. Você pode usar Ctrl + P para salvar a página como PDF.');
-      }
+      console.error('Erro ao tirar printscreen da página:', err);
+      alert('Ocorreu um erro ao capturar o printscreen da página.');
     } finally {
-      setIsExportingPDF(false);
+      setIsCapturingScreen(false);
     }
   };
 
@@ -204,52 +200,30 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Action Buttons */}
-            {activeTab === 'river' && (
+
+            {activeTab === 'shelters' && (
               <>
                 <button
-                  id="btn-open-reading-modal"
-                  onClick={onOpenNewReadingModal}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs sm:text-sm rounded-lg shadow-md shadow-cyan-500/20 transition-all cursor-pointer active:scale-95"
-                  title="Lançar Nível do Rio (Manual ou CSV)"
+                  id="btn-open-shelter-reading-modal"
+                  onClick={onOpenNewShelterReadingModal}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs sm:text-sm rounded-lg shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
+                  title="Lançar número de pessoas e famílias acolhidas"
                 >
                   <Plus className="w-4 h-4" />
-                  Cadastrar Nível
+                  Lançar Pessoas/Famílias
                 </button>
 
                 <button
-                  id="btn-open-city-modal"
-                  onClick={onOpenNewCityModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                  title="Gerenciar Cidades e Cotas de Alerta"
+                  id="btn-open-new-shelter-modal"
+                  onClick={onOpenNewShelterModal}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 text-xs font-bold rounded-lg border border-indigo-700/80 transition-colors cursor-pointer"
+                  title="Cadastrar Novo Abrigo Manualmente"
                 >
-                  <Building2 className="w-4 h-4 text-cyan-400" />
-                  <span>Gerenciar Cidades e Cotas</span>
+                  <Home className="w-4 h-4 text-indigo-400" />
+                  <span>+ Cadastrar Abrigo</span>
                 </button>
               </>
             )}
-
-            {activeTab === 'shelters' && (
-                  <>
-                    <button
-                      id="btn-open-shelter-reading-modal"
-                      onClick={onOpenNewShelterReadingModal}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-semibold text-sm rounded-lg shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Lançar Dados de Abrigados
-                    </button>
-
-                    <button
-                      id="btn-open-new-shelter-modal"
-                      onClick={onOpenNewShelterModal}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                      title="Cadastrar Novo Abrigo"
-                    >
-                      <Home className="w-4 h-4 text-indigo-400" />
-                      <span className="hidden sm:inline">Novo</span> Abrigo
-                    </button>
-                  </>
-                )}
 
                 {activeTab === 'videos' && onOpenNewVideoModal && (
                   <button
@@ -271,24 +245,24 @@ export const Header: React.FC<HeaderProps> = ({
                   <RefreshCw className="w-4 h-4" />
                 </button>
 
-            {/* Export Buttons: PDF / Print & CSV - Always available */}
+            {/* Export Buttons: Printscreen PNG & CSV - Always available */}
             <div className="flex items-center gap-1.5 no-print">
               <button
-                id="btn-export-page"
-                onClick={handleExportPDF}
-                disabled={isExportingPDF}
+                id="btn-export-printscreen"
+                onClick={handleTakePrintscreen}
+                disabled={isCapturingScreen}
                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Baixar/Imprimir a página completa em PDF"
+                title="Capturar printscreen de toda a página (Imagem PNG)"
               >
-                {isExportingPDF ? (
+                {isCapturingScreen ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                    <span>Gerando PDF...</span>
+                    <span>Capturando...</span>
                   </>
                 ) : (
                   <>
-                    <Printer className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="hidden md:inline">Baixar Página (PDF)</span>
+                    <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Printscreen</span>
                   </>
                 )}
               </button>
@@ -300,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
                 title="Exportar dados em planilha CSV"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="hidden md:inline">Exportar CSV</span>
+                <span>CSV</span>
               </button>
             </div>
           </div>

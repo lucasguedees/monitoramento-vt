@@ -35,12 +35,13 @@ const CITY_COLORS = [
   '#14b8a6', // Teal
 ];
 
-export const RiverChart: React.FC<RiverChartProps> = ({
+const RiverChartComponent: React.FC<RiverChartProps> = ({
   cities,
   readings,
   selectedCityId,
   onSelectCity,
 }) => {
+
   const [timeInterval, setTimeInterval] = useState<TimeInterval>('48h');
   const [comparisonMode, setComparisonMode] = useState<boolean>(false);
   const [showThresholdLines, setShowThresholdLines] = useState<boolean>(true);
@@ -359,6 +360,7 @@ export const RiverChart: React.FC<RiverChartProps> = ({
                   strokeWidth={2.5}
                   dot={{ r: 3, strokeWidth: 1 }}
                   activeDot={{ r: 6 }}
+                  isAnimationActive={false}
                 />
               ))}
             </LineChart>
@@ -516,6 +518,7 @@ export const RiverChart: React.FC<RiverChartProps> = ({
                 strokeWidth={3}
                 fillOpacity={1}
                 fill={colorByThreshold ? "url(#thresholdFillGradient)" : "url(#colorRiverLevel)"}
+                isAnimationActive={false}
                 dot={(props: any) => {
                   const { cx, cy, payload, index } = props;
                   if (cx === undefined || cy === undefined) return null;
@@ -568,4 +571,6 @@ export const RiverChart: React.FC<RiverChartProps> = ({
     </div>
   );
 };
+
+export const RiverChart = React.memo(RiverChartComponent);
 

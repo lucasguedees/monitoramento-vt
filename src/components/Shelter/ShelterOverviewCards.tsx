@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Shelter, CalculatedShelterReading } from '../../types';
 import { getShelterLatestReading, getShelterStatusBadgeStyle, formatShelterDate } from '../../utils/shelterUtils';
-import { Users, Home, Plus, Edit2, Phone, MapPin, Building, Database, UserCheck, Filter, Building2 } from 'lucide-react';
+import { Users, Home, Plus, Edit2, Trash2, Phone, MapPin, Building, Database, UserCheck, Filter, Building2 } from 'lucide-react';
 
 interface ShelterOverviewCardsProps {
   shelters: Shelter[];
@@ -13,10 +13,11 @@ interface ShelterOverviewCardsProps {
   onOpenReadingModal: (shelterId: string) => void;
   onOpenEditShelterModal: (shelter: Shelter) => void;
   onOpenNewShelterModal: () => void;
+  onDeleteShelter?: (shelterId: string) => void;
   isAdminAuthorized?: boolean;
 }
 
-export const ShelterOverviewCards: React.FC<ShelterOverviewCardsProps> = ({
+const ShelterOverviewCardsComponent: React.FC<ShelterOverviewCardsProps> = ({
   shelters,
   readings,
   selectedCity = 'all',
@@ -26,6 +27,7 @@ export const ShelterOverviewCards: React.FC<ShelterOverviewCardsProps> = ({
   onOpenReadingModal,
   onOpenEditShelterModal,
   onOpenNewShelterModal,
+  onDeleteShelter,
   isAdminAuthorized = false,
 }) => {
   // Extract unique cities from shelters with count
@@ -247,6 +249,17 @@ export const ShelterOverviewCards: React.FC<ShelterOverviewCardsProps> = ({
 
               {/* Card Actions */}
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+                {onDeleteShelter && (
+                  <button
+                    onClick={() => onDeleteShelter(shelter.id)}
+                    className="p-1.5 text-rose-400 hover:text-rose-200 bg-rose-950/40 hover:bg-rose-900/60 rounded-lg transition-colors cursor-pointer text-xs flex items-center gap-1 border border-rose-800/40"
+                    title="Excluir este abrigo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Excluir</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => onOpenEditShelterModal(shelter)}
                   className="p-1.5 text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer text-xs flex items-center gap-1"
@@ -280,4 +293,6 @@ export const ShelterOverviewCards: React.FC<ShelterOverviewCardsProps> = ({
     </div>
   );
 };
+
+export const ShelterOverviewCards = React.memo(ShelterOverviewCardsComponent);
 
