@@ -70,10 +70,27 @@ export interface YouTubeVideo {
   title: string;
   youtubeUrl: string;
   youtubeId: string;
-  category: 'Ao Vivo / Câmeras' | 'Vale do Taquari' | 'Guaíba' | 'Notícias & Alertas' | 'Orientações & Abrigos';
+  category: string;
   description?: string;
   author?: string;
   createdAt: string;
   isFeatured?: boolean;
+}
+
+export type RoadBlockStatus = 'total' | 'parcial' | 'liberado';
+
+export interface BlockedRoad {
+  id: string;
+  cityName: string;
+  locationName: string; // Endereço, rua ou rodovia
+  status: RoadBlockStatus;
+  reason?: string; // Motivo da interdição
+  imageUrl?: string; // Foto da via interditada
+  latitude: number;
+  longitude: number;
+  reportedAt: string; // Data e hora do registro
+  expectedRelease?: string; // Previsão de liberação
+  notes?: string;
+  createdAt: string;
 }
 

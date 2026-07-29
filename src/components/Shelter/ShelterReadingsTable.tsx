@@ -23,6 +23,7 @@ interface ShelterReadingsTableProps {
   selectedCity?: string;
   onEditReading: (reading: CalculatedShelterReading) => void;
   onDeleteReading: (readingId: string) => void;
+  onClearAllReadings?: (readingIds?: string[]) => void;
   onExportCSV: () => void;
   onOpenNewReadingModal: () => void;
   isAdminAuthorized?: boolean;
@@ -34,6 +35,7 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
   selectedCity = 'all',
   onEditReading,
   onDeleteReading,
+  onClearAllReadings,
   onExportCSV,
   onOpenNewReadingModal,
   isAdminAuthorized = false,
@@ -41,6 +43,9 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>(selectedCity);
   const [selectedShelterFilter, setSelectedShelterFilter] = useState<string>('all');
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Sync prop selectedCity with local filter state
   useEffect(() => {
@@ -91,6 +96,16 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
     });
   }, [readings, shelters, selectedCityFilter, selectedShelterFilter, searchTerm]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCityFilter, selectedShelterFilter, searchTerm, pageSize]);
+
+  const totalPages = Math.ceil(filteredReadings.length / pageSize) || 1;
+  const paginatedReadings = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredReadings.slice(start, start + pageSize);
+  }, [filteredReadings, currentPage, pageSize]);
+
   return (
     <div id="shelter-readings-history-card" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
       
@@ -107,7 +122,18 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdminAuthorized && filteredReadings.length > 0 && onClearAllReadings && (
+              <button
+                onClick={() => onClearAllReadings(filteredReadings.map(r => r.id))}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 font-semibold text-xs rounded-xl border border-red-200 dark:border-red-800/60 transition-colors cursor-pointer"
+                title="Excluir lançamentos selecionados do histórico"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Excluir Histórico ({filteredReadings.length})
+              </button>
+            )}
+
             <button
               onClick={onExportCSV}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
@@ -193,7 +219,7 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-            {filteredReadings.length === 0 ? (
+            {paginatedReadings.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-slate-400 italic">
                   <div className="flex flex-col items-center justify-center gap-2">
@@ -203,7 +229,7 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
                 </td>
               </tr>
             ) : (
-              filteredReadings.map(reading => {
+              paginatedReadings.map(reading => {
                 const demoEntries = Object.entries(reading.demographics || {});
                 return (
                   <tr
@@ -292,10 +318,56 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
         </table>
       </div>
 
-      {/* Footer Info */}
-      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
-        <span>Exibindo <strong>{filteredReadings.length}</strong> de <strong>{readings.length}</strong> cadastros históricos</span>
-        <span>Os dados cadastrados são salvos localmente e podem ser exportados a qualquer momento.</span>
+      {/* Footer Info & Pagination */}
+      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span>Exibindo {(currentPage - 1) * pageSize + 1} até {Math.min(currentPage * pageSize, filteredReadings.length)} de <strong>{filteredReadings.length}</strong> cadastros</span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="ml-2 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium cursor-pointer"
+          >
+            <option value={15}>15 por página</option>
+            <option value={25}>25 por página</option>
+            <option value={50}>50 por página</option>
+          </select>
+        </div>
+
+        {filteredReadings.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Primeira
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Anterior
+            </button>
+            <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Próxima
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded font-medium disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Última
+            </button>
+          </div>
+        )}
       </div>
 
     </div>

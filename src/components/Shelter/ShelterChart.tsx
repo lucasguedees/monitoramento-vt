@@ -83,11 +83,31 @@ const ShelterChartComponent: React.FC<ShelterChartProps> = ({
       const cutoffHours = hoursMap[timeInterval];
       const cutoffTime = new Date(Date.now() - cutoffHours * 3600 * 1000).getTime();
 
-      dataset = dataset.filter(r => new Date(r.timestamp).getTime() >= cutoffTime);
+      const getSortKey = (r: { timestamp: string; dateStr?: string; timeStr?: string }) => {
+        return (r.dateStr && r.timeStr) ? `${r.dateStr}T${r.timeStr}` : r.timestamp;
+      };
+
+      const cutoffMs = Date.now() - cutoffHours * 3600 * 1000;
+      const cutoffDate = new Date(cutoffMs);
+      const cutoffY = cutoffDate.getFullYear();
+      const cutoffM = String(cutoffDate.getMonth() + 1).padStart(2, '0');
+      const cutoffD = String(cutoffDate.getDate()).padStart(2, '0');
+      const cutoffH = String(cutoffDate.getHours()).padStart(2, '0');
+      const cutoffMin = String(cutoffDate.getMinutes()).padStart(2, '0');
+      const cutoffKey = `${cutoffY}-${cutoffM}-${cutoffD}T${cutoffH}:${cutoffMin}`;
+
+      dataset = dataset.filter(r => getSortKey(r) >= cutoffKey);
     }
 
     // Sort chronologically ascending for Recharts timeline
-    dataset.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    dataset.sort((a, b) => {
+      const getSortKey = (r: { timestamp: string; dateStr?: string; timeStr?: string }) => {
+        return (r.dateStr && r.timeStr) ? `${r.dateStr}T${r.timeStr}` : r.timestamp;
+      };
+      const ka = getSortKey(a);
+      const kb = getSortKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
 
     // Format for chart display
     return dataset.map(r => {

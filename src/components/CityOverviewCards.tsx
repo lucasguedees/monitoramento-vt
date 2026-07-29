@@ -169,7 +169,7 @@ const CityOverviewCardsComponent: React.FC<CityOverviewCardsProps> = ({
               }`}>
                 <div className={`flex items-center gap-1 min-w-0 ${isSelected ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}`}>
                   <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{latest ? formatDateTimeBR(latest.timestamp) : 'Sem leituras'}</span>
+                  <span className="truncate">{latest ? formatDateTimeBR(latest.timestamp, latest.dateStr, latest.timeStr) : 'Sem leituras'}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">

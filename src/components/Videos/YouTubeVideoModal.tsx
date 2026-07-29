@@ -10,12 +10,14 @@ interface YouTubeVideoModalProps {
   editingVideo?: YouTubeVideo | null;
 }
 
-const CATEGORIES: YouTubeVideo['category'][] = [
-  'Ao Vivo / Câmeras',
-  'Vale do Taquari',
-  'Guaíba',
-  'Notícias & Alertas',
-  'Orientações & Abrigos'
+const CATEGORIES: string[] = [
+  'Lajeado / Estrela',
+  'Arroio do Meio',
+  'Encantado',
+  'Muçum',
+  'Roca Sales',
+  'Taquari',
+  'Bom Retiro do Sul'
 ];
 
 export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
@@ -26,7 +28,7 @@ export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
 }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<YouTubeVideo['category']>('Guaíba');
+  const [category, setCategory] = useState<string>('Lajeado / Estrela');
   const [description, setDescription] = useState('');
   const [author, setAuthor] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
@@ -43,13 +45,29 @@ export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
     } else {
       setYoutubeUrl('');
       setTitle('');
-      setCategory('Guaíba');
+      setCategory('Lajeado / Estrela');
       setDescription('');
       setAuthor('');
       setIsFeatured(false);
     }
     setError(null);
   }, [editingVideo, isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

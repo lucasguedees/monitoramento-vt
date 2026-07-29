@@ -150,8 +150,8 @@ export function generateInitialShelterReadings(): ShelterReading[] {
 
   const getTimestamp = (hoursAgo: number) => {
     const d = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-    const dateStr = d.toISOString().split('T')[0];
-    const timeStr = d.toTimeString().split(' ')[0].substring(0, 5);
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const timeStr = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
     return {
       timestamp: `${dateStr}T${timeStr}`,
       dateStr,

@@ -51,20 +51,31 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
     return cities.find(c => c.id === selectedCityId) || cities[0] || null;
   }, [cities, selectedCityId]);
 
+  // Fast sort key generator (YYYY-MM-DDTHH:mm) - zero Date allocations
+  const getSortKey = (r: { timestamp: string; dateStr?: string; timeStr?: string }) => {
+    return (r.dateStr && r.timeStr) ? `${r.dateStr}T${r.timeStr}` : r.timestamp;
+  };
+
   // Filter readings based on time interval
   const filteredReadings = useMemo(() => {
     if (!readings.length) return [];
     
-    const nowMs = new Date().getTime();
     let hoursCutoff = 48;
     if (timeInterval === '24h') hoursCutoff = 24;
     else if (timeInterval === '7d') hoursCutoff = 24 * 7;
     else if (timeInterval === '30d') hoursCutoff = 24 * 30;
     else if (timeInterval === 'all') hoursCutoff = 24 * 365;
 
-    const cutoffMs = nowMs - hoursCutoff * 60 * 60 * 1000;
+    const cutoffMs = Date.now() - hoursCutoff * 60 * 60 * 1000;
+    const cutoffDate = new Date(cutoffMs);
+    const cutoffY = cutoffDate.getFullYear();
+    const cutoffM = String(cutoffDate.getMonth() + 1).padStart(2, '0');
+    const cutoffD = String(cutoffDate.getDate()).padStart(2, '0');
+    const cutoffH = String(cutoffDate.getHours()).padStart(2, '0');
+    const cutoffMin = String(cutoffDate.getMinutes()).padStart(2, '0');
+    const cutoffKey = `${cutoffY}-${cutoffM}-${cutoffD}T${cutoffH}:${cutoffMin}`;
 
-    return readings.filter(r => new Date(r.timestamp).getTime() >= cutoffMs);
+    return readings.filter(r => getSortKey(r) >= cutoffKey);
   }, [readings, timeInterval]);
 
   // Chart Data for Single City
@@ -72,7 +83,11 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
     if (!activeCity) return [];
     const cityReadings = filteredReadings
       .filter(r => r.cityId === activeCity.id)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      .sort((a, b) => {
+        const ka = getSortKey(a);
+        const kb = getSortKey(b);
+        return ka < kb ? -1 : ka > kb ? 1 : 0;
+      });
 
     return cityReadings.map(r => ({
       timestamp: r.timestamp,
@@ -91,9 +106,11 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
     // Collect all unique formatted timestamps
     const timestampsMap = new Map<string, Record<string, any>>();
 
-    const sortedAll = [...filteredReadings].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+    const sortedAll = [...filteredReadings].sort((a, b) => {
+      const ka = getSortKey(a);
+      const kb = getSortKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
 
     sortedAll.forEach(r => {
       const label = `${formatDateShort(r.dateStr)} ${r.timeStr}`;
@@ -178,7 +195,7 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {comparisonMode
                   ? 'Comparação direta das curvas de cota entre cidades do Vale do Taquari'
-                  : `Evolução temporal do Rio Taquari em ${activeCity?.name || 'Lajeado'} com cotas de alerta`}
+                  : `Evolução temporal do Rio Taquari em ${activeCity?.name || 'Lajeado/Estrela'} com cotas de alerta`}
               </p>
             </div>
           </div>

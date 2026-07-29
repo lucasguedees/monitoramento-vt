@@ -78,14 +78,48 @@ export function getStatusBadgeStyle(status: AlertStatus): { bg: string; text: st
 }
 
 /**
+ * Fast helper to get a comparable string key (YYYY-MM-DDTHH:mm) for sorting with zero Date allocations
+ */
+export function getReadingFastKey(r: { timestamp: string; dateStr?: string; timeStr?: string }): string {
+  if (r.dateStr && r.timeStr) {
+    return `${r.dateStr}T${r.timeStr}`;
+  }
+  return r.timestamp || '';
+}
+
+/**
+ * Fast parse timestamp in milliseconds for time differences
+ */
+export function getReadingFastTimeMs(r: { timestamp: string; dateStr?: string; timeStr?: string }): number {
+  if (r.dateStr && r.timeStr) {
+    const y = parseInt(r.dateStr.slice(0, 4), 10);
+    const m = parseInt(r.dateStr.slice(5, 7), 10);
+    const d = parseInt(r.dateStr.slice(8, 10), 10);
+    const hh = parseInt(r.timeStr.slice(0, 2), 10);
+    const mm = parseInt(r.timeStr.slice(3, 5), 10);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d) && !isNaN(hh) && !isNaN(mm)) {
+      return Date.UTC(y, m - 1, d, hh, mm);
+    }
+  }
+  return new Date(r.timestamp).getTime() || 0;
+}
+
+/**
  * Deduplicates readings for the same city on the same date/time bucket (15 min window)
  * prioritizing real auto-synced readings over seed readings.
  */
 export function deduplicateReadings(readings: RiverReading[]): RiverReading[] {
-  const sorted = [...readings].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // Fast string sort descending without Date objects
+  const sorted = [...readings].sort((a, b) => {
+    const ka = getReadingFastKey(a);
+    const kb = getReadingFastKey(b);
+    return ka < kb ? 1 : ka > kb ? -1 : 0;
+  });
+
   const resultMap = new Map<string, RiverReading>();
 
-  for (const r of sorted) {
+  for (let i = 0; i < sorted.length; i++) {
+    const r = sorted[i];
     if (!r || !r.cityId || !r.dateStr || !r.timeStr) continue;
     const parts = r.timeStr.split(':');
     const h = parseInt(parts[0], 10);
@@ -118,10 +152,15 @@ export function calculateCalculatedReadings(readings: RiverReading[], cities: Ci
   
   // Group readings by city
   const byCity = new Map<string, RiverReading[]>();
-  cleanReadings.forEach(r => {
-    if (!byCity.has(r.cityId)) byCity.set(r.cityId, []);
-    byCity.get(r.cityId)!.push(r);
-  });
+  for (let i = 0; i < cleanReadings.length; i++) {
+    const r = cleanReadings[i];
+    let arr = byCity.get(r.cityId);
+    if (!arr) {
+      arr = [];
+      byCity.set(r.cityId, arr);
+    }
+    arr.push(r);
+  }
 
   const result: CalculatedReading[] = [];
 
@@ -130,24 +169,27 @@ export function calculateCalculatedReadings(readings: RiverReading[], cities: Ci
     const cityName = city ? city.name : 'Cidade Desconhecida';
     const thresholds = city ? city.thresholds : { atencao: 15, alerta: 17, inundacao: 19 };
 
-    // Sort chronologically ascending
-    const sorted = [...cityReadings].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Sort chronologically ascending using fast keys
+    const sorted = [...cityReadings].sort((a, b) => {
+      const ka = getReadingFastKey(a);
+      const kb = getReadingFastKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
 
+    let prevTimeMs = 0;
     for (let i = 0; i < sorted.length; i++) {
       const current = sorted[i];
+      const currTimeMs = getReadingFastTimeMs(current);
       let rate: number | null = null;
 
-      if (i > 0) {
-        const prev = sorted[i - 1];
-        const prevTime = new Date(prev.timestamp).getTime();
-        const currTime = new Date(current.timestamp).getTime();
-        const diffHours = (currTime - prevTime) / (1000 * 60 * 60);
-
-        if (diffHours > 0) {
-          const diffMeters = current.levelMeters - prev.levelMeters;
-          rate = diffMeters / diffHours; // m/h
+      if (i > 0 && prevTimeMs > 0 && currTimeMs > prevTimeMs) {
+        const diffHours = (currTimeMs - prevTimeMs) / 3600000;
+        if (diffHours > 0 && diffHours <= 24) { // Only calculate rate for gaps under 24 hours
+          const diffMeters = current.levelMeters - sorted[i - 1].levelMeters;
+          rate = diffMeters / diffHours;
         }
       }
+      prevTimeMs = currTimeMs;
 
       result.push({
         ...current,
@@ -158,20 +200,38 @@ export function calculateCalculatedReadings(readings: RiverReading[], cities: Ci
     }
   });
 
-  // Return sorted descending by timestamp for list/table views
-  return result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // Return sorted descending by fast key
+  return result.sort((a, b) => {
+    const ka = getReadingFastKey(a);
+    const kb = getReadingFastKey(b);
+    return ka < kb ? 1 : ka > kb ? -1 : 0;
+  });
 }
 
-export function formatDateTimeBR(isoString: string): string {
+// Reusable singletons to prevent heavy instantiation overhead in loops
+const brtDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
+const brtTimeFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+const brtFullFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+
+export function formatDateTimeBR(isoString: string, dateStr?: string, timeStr?: string): string {
+  if (dateStr && timeStr) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]} às ${timeStr}`;
+    }
+  }
   try {
+    if (isoString && isoString.includes('T')) {
+      const [dPart, tPart] = isoString.split('T');
+      const parts = dPart.split('-');
+      const timeClean = tPart.substring(0, 5);
+      if (parts.length === 3 && timeClean.length === 5) {
+        return `${parts[2]}/${parts[1]}/${parts[0]} às ${timeClean}`;
+      }
+    }
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return isoString;
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} às ${hours}:${minutes}`;
+    return brtFullFormatter.format(date);
   } catch {
     return isoString;
   }
@@ -187,17 +247,14 @@ export function formatDateShort(dateStr: string): string {
 }
 
 export function getTodayDateStr(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return brtDateFormatter.format(new Date());
 }
 
 export function getCurrentTimeNearest15(): string {
-  const now = new Date();
-  let minutes = now.getMinutes();
-  let hours = now.getHours();
+  const timeRaw = brtTimeFormatter.format(new Date());
+  const [hStr, mStr] = timeRaw.split(':');
+  let hours = parseInt(hStr, 10) || 0;
+  let minutes = parseInt(mStr, 10) || 0;
 
   if (minutes < 8) {
     minutes = 0;

@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
-import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2, Camera } from 'lucide-react';
+import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2, Camera, Database, UploadCloud, PhoneCall, Phone, AlertOctagon } from 'lucide-react';
 import { CalculatedReading, City, CalculatedShelterReading, Shelter } from '../types';
 
 interface HeaderProps {
-  activeTab: 'river' | 'shelters' | 'videos' | 'about';
-  onChangeTab: (tab: 'river' | 'shelters' | 'videos' | 'about') => void;
+  activeTab: 'river' | 'shelters' | 'roads' | 'videos' | 'phones';
+  onChangeTab: (tab: 'river' | 'shelters' | 'roads' | 'videos' | 'phones') => void;
   onOpenNewReadingModal: () => void;
   onOpenNewCityModal: () => void;
   onOpenNewShelterReadingModal: () => void;
   onOpenNewShelterModal: () => void;
   onOpenNewVideoModal?: () => void;
-  onResetSeedData: () => void;
+  onOpenBackupRestoreModal?: () => void;
+  onResetSeedData?: () => void;
   onExportCSV: () => void;
   readings: CalculatedReading[];
   cities: City[];
   shelterReadings: CalculatedShelterReading[];
   shelters: Shelter[];
   videosCount?: number;
+  blockedRoadsCount?: number;
   isAdminAuthorized: boolean;
   onOpenAdminAuth: (pendingAction?: string) => void;
   onLogoutAdmin: () => void;
@@ -30,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewShelterReadingModal,
   onOpenNewShelterModal,
   onOpenNewVideoModal,
+  onOpenBackupRestoreModal,
   onResetSeedData,
   onExportCSV,
   readings,
@@ -37,6 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
   shelterReadings,
   shelters,
   videosCount,
+  blockedRoadsCount,
   isAdminAuthorized,
   onOpenAdminAuth,
   onLogoutAdmin,
@@ -108,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
     : 0;
 
   return (
-    <header id="main-header" className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-lg">
+    <header id="main-header" className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3">
         
         {/* Top Row: Logo, Summary Badges, Action Buttons */}
@@ -173,109 +177,115 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Action Buttons & Access Mode */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col items-start md:items-end gap-2.5 no-print">
             
-            {/* Operator Login / Access Lock Button */}
-            {isAdminAuthorized ? (
-              <button
-                id="btn-logout-admin"
-                onClick={onLogoutAdmin}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-700/80 hover:bg-emerald-900 transition-colors cursor-pointer shadow-sm"
-                title="Modo Administrador Ativo. Clique para encerrar a sessão."
-              >
-                <Unlock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Modo Operador</span>
-                <span className="text-[10px] text-emerald-400/80 underline ml-1">Bloquear</span>
-              </button>
-            ) : (
-              <button
-                id="btn-login-admin"
-                onClick={() => onOpenAdminAuth()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-                title="Área do Operador - Clique para fazer login e liberar cadastros"
-              >
-                <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Entrar</span>
-              </button>
-            )}
-
-            {/* Action Buttons */}
-
-            {activeTab === 'shelters' && (
-              <>
+            {/* Top Row: Larger Entrar / Operator Login Button */}
+            <div>
+              {isAdminAuthorized ? (
                 <button
-                  id="btn-open-shelter-reading-modal"
-                  onClick={onOpenNewShelterReadingModal}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs sm:text-sm rounded-lg shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
-                  title="Lançar número de pessoas e famílias acolhidas"
+                  id="btn-logout-admin"
+                  onClick={onLogoutAdmin}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-700/80 hover:bg-emerald-900 transition-colors cursor-pointer shadow-md"
+                  title="Modo Administrador Ativo. Clique para encerrar a sessão."
                 >
-                  <Plus className="w-4 h-4" />
-                  Lançar Pessoas/Famílias
+                  <Unlock className="w-4 h-4 text-emerald-400" />
+                  <span>Modo Operador</span>
+                  <span className="text-[10px] text-emerald-400/80 underline ml-1">Bloquear</span>
+                </button>
+              ) : (
+                <button
+                  id="btn-login-admin"
+                  onClick={() => onOpenAdminAuth()}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-extrabold bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white border border-indigo-400/40 shadow-md shadow-indigo-600/30 transition-all cursor-pointer active:scale-95"
+                  title="Área do Operador - Clique para fazer login e liberar cadastros"
+                >
+                  <Lock className="w-4 h-4 text-indigo-200" />
+                  <span>Entrar</span>
+                </button>
+              )}
+            </div>
+
+            {/* Bottom Row: Secondary Action Buttons aligned under Entrar */}
+            <div className="flex items-center gap-1.5 flex-wrap justify-start md:justify-end">
+              
+              {/* Backup / Restaurar Button */}
+              {onOpenBackupRestoreModal && (
+                <button
+                  id="btn-open-backup-modal"
+                  onClick={onOpenBackupRestoreModal}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-cyan-950 to-indigo-950 hover:from-cyan-900 hover:to-indigo-900 text-cyan-200 border border-cyan-700/80 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 h-9"
+                  title="Fazer download do backup ou anexar arquivo para restaurar"
+                >
+                  <Database className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Backup / Restaurar</span>
+                </button>
+              )}
+
+              {/* Printscreen (Camera) & CSV Export Group */}
+              <div className="flex items-center gap-1.5">
+                {/* Printscreen Button (Icon Only) */}
+                <button
+                  id="btn-export-printscreen"
+                  onClick={handleTakePrintscreen}
+                  disabled={isCapturingScreen}
+                  className="p-2 h-9 w-9 inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Capturar printscreen de toda a página (Imagem PNG)"
+                >
+                  {isCapturingScreen ? (
+                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4 text-cyan-400" />
+                  )}
                 </button>
 
+                {/* CSV Button */}
                 <button
-                  id="btn-open-new-shelter-modal"
-                  onClick={onOpenNewShelterModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 text-xs font-bold rounded-lg border border-indigo-700/80 transition-colors cursor-pointer"
-                  title="Cadastrar Novo Abrigo Manualmente"
+                  id="btn-export-csv"
+                  onClick={onExportCSV}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
+                  title="Exportar dados em planilha CSV"
                 >
-                  <Home className="w-4 h-4 text-indigo-400" />
-                  <span>+ Cadastrar Abrigo</span>
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CSV</span>
                 </button>
-              </>
-            )}
+              </div>
 
-                {activeTab === 'videos' && onOpenNewVideoModal && (
+              {/* Tab-Specific Action Buttons */}
+              {activeTab === 'shelters' && (
+                <>
                   <button
-                    id="btn-open-new-video-modal"
-                    onClick={onOpenNewVideoModal}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-semibold text-sm rounded-lg shadow-md shadow-red-500/20 transition-all cursor-pointer active:scale-95"
+                    id="btn-open-shelter-reading-modal"
+                    onClick={onOpenNewShelterReadingModal}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs sm:text-sm rounded-lg shadow-md shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
+                    title="Lançar número de pessoas e famílias acolhidas"
                   >
                     <Plus className="w-4 h-4" />
-                    Compartilhar Vídeo
+                    Lançar Pessoas/Famílias
                   </button>
-                )}
 
+                  <button
+                    id="btn-open-new-shelter-modal"
+                    onClick={onOpenNewShelterModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 text-xs font-bold rounded-lg border border-indigo-700/80 transition-colors cursor-pointer"
+                    title="Cadastrar Novo Abrigo Manualmente"
+                  >
+                    <Home className="w-4 h-4 text-indigo-400" />
+                    <span>+ Cadastrar Abrigo</span>
+                  </button>
+                </>
+              )}
+
+              {activeTab === 'videos' && onOpenNewVideoModal && (
                 <button
-                  id="btn-reset-seed"
-                  onClick={onResetSeedData}
-                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                  title="Restaurar dados demonstrativos padrão"
+                  id="btn-open-new-video-modal"
+                  onClick={onOpenNewVideoModal}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-semibold text-sm rounded-lg shadow-md shadow-red-500/20 transition-all cursor-pointer active:scale-95"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
+                  Compartilhar Vídeo
                 </button>
+              )}
 
-            {/* Export Buttons: Printscreen PNG & CSV - Always available */}
-            <div className="flex items-center gap-1.5 no-print">
-              <button
-                id="btn-export-printscreen"
-                onClick={handleTakePrintscreen}
-                disabled={isCapturingScreen}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Capturar printscreen de toda a página (Imagem PNG)"
-              >
-                {isCapturingScreen ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
-                    <span>Capturando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Printscreen</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                id="btn-export-csv"
-                onClick={onExportCSV}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
-                title="Exportar dados em planilha CSV"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>CSV</span>
-              </button>
             </div>
           </div>
 
@@ -314,6 +324,23 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
+            onClick={() => onChangeTab('roads')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'roads'
+                ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold shadow-md'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+          >
+            <AlertOctagon className="w-4 h-4 text-red-400" />
+            <span>Vias Interditadas</span>
+            {blockedRoadsCount !== undefined && (
+              <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-900/60 font-semibold text-white">
+                {blockedRoadsCount}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => onChangeTab('videos')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'videos'
@@ -331,15 +358,15 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
-            onClick={() => onChangeTab('about')}
+            onClick={() => onChangeTab('phones')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'about'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-extrabold shadow-md'
+              activeTab === 'phones'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-extrabold shadow-md'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
             }`}
           >
-            <Info className="w-4 h-4" />
-            <span>Sobre & Transparência</span>
+            <PhoneCall className="w-4 h-4 text-emerald-400" />
+            <span>Telefones Úteis</span>
           </button>
         </div>
 

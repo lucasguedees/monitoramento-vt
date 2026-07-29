@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CalculatedReading, City, AlertStatus } from '../types';
 import { getStatusBadgeStyle, getStatusLabel, formatDateTimeBR } from '../utils/riverUtils';
 import { Table, Search, Filter, Trash2, Edit3, Download, TrendingUp, TrendingDown, Minus, FileSpreadsheet, RefreshCw, Globe, ChevronDown, ChevronUp } from 'lucide-react';
@@ -8,6 +8,7 @@ interface ReadingsTableProps {
   cities: City[];
   onEditReading: (reading: CalculatedReading) => void;
   onDeleteReading: (readingId: string) => void;
+  onClearAllReadings?: (readingIds?: string[]) => void;
   onExportCSV: () => void;
   onSyncAutomatedReadings?: () => void;
   isSyncing?: boolean;
@@ -19,6 +20,7 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
   cities,
   onEditReading,
   onDeleteReading,
+  onClearAllReadings,
   onExportCSV,
   onSyncAutomatedReadings,
   isSyncing = false,
@@ -28,6 +30,9 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   const filteredReadings = useMemo(() => {
     return readings.filter(r => {
@@ -50,6 +55,17 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
       return true;
     });
   }, [readings, selectedCityFilter, selectedStatusFilter, searchTerm]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCityFilter, selectedStatusFilter, searchTerm, pageSize]);
+
+  const totalPages = Math.ceil(filteredReadings.length / pageSize) || 1;
+  const paginatedReadings = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredReadings.slice(start, start + pageSize);
+  }, [filteredReadings, currentPage, pageSize]);
 
   return (
     <div id="readings-table-card" className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md p-5 space-y-4">
@@ -140,6 +156,17 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              {isAdminAuthorized && filteredReadings.length > 0 && onClearAllReadings && (
+                <button
+                  onClick={() => onClearAllReadings(filteredReadings.map(r => r.id))}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-950/60 hover:bg-red-100 dark:hover:bg-red-900/80 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-800 transition-colors cursor-pointer"
+                  title="Excluir medições filtradas do histórico de rios"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Excluir Histórico ({filteredReadings.length})</span>
+                </button>
+              )}
+
               <button
                 onClick={onExportCSV}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900 text-cyan-700 dark:text-cyan-300 text-xs font-semibold rounded-lg border border-cyan-200 dark:border-cyan-800 transition-colors cursor-pointer"
@@ -178,14 +205,14 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
-            {filteredReadings.length === 0 ? (
+            {paginatedReadings.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
                   Nenhuma leitura encontrada com os filtros selecionados.
                 </td>
               </tr>
             ) : (
-              filteredReadings.map((reading) => {
+              paginatedReadings.map((reading) => {
                 const badgeStyle = getStatusBadgeStyle(reading.status);
                 const variation = reading.variationMeterPerHour;
 
@@ -201,7 +228,7 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
 
                     {/* Date & Standard Time */}
                     <td className="p-3 font-medium text-slate-700 dark:text-slate-300">
-                      {formatDateTimeBR(reading.timestamp)}
+                      {formatDateTimeBR(reading.timestamp, reading.dateStr, reading.timeStr)}
                     </td>
 
                     {/* Gauge Measurement */}
@@ -279,6 +306,59 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Bar */}
+      {filteredReadings.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <span>Exibindo {(currentPage - 1) * pageSize + 1} até {Math.min(currentPage * pageSize, filteredReadings.length)} de <strong className="text-slate-900 dark:text-white">{filteredReadings.length}</strong> medições</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="ml-2 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium cursor-pointer"
+            >
+              <option value={15}>15 por página</option>
+              <option value={25}>25 por página</option>
+              <option value={50}>50 por página</option>
+              <option value={100}>100 por página</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Primeira
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Anterior
+            </button>
+            <span className="px-2 font-semibold text-slate-800 dark:text-slate-200">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Próxima
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Última
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )}
 

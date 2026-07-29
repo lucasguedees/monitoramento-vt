@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Youtube,
   Play,
@@ -31,11 +31,13 @@ interface VideosPageProps {
 
 const CATEGORIES = [
   'Todos',
-  'Ao Vivo / Câmeras',
-  'Vale do Taquari',
-  'Guaíba',
-  'Notícias & Alertas',
-  'Orientações & Abrigos'
+  'Lajeado / Estrela',
+  'Arroio do Meio',
+  'Encantado',
+  'Muçum',
+  'Roca Sales',
+  'Taquari',
+  'Bom Retiro do Sul'
 ] as const;
 
 export const VideosPage: React.FC<VideosPageProps> = ({
@@ -48,15 +50,54 @@ export const VideosPage: React.FC<VideosPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedVideo, setExpandedVideo] = useState<YouTubeVideo | null>(null);
+  const [playingInlineVideoId, setPlayingInlineVideoId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Close expanded video modal when pressing the Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpandedVideo(null);
+      }
+    };
+
+    if (expandedVideo) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [expandedVideo]);
 
   // Filtered list
   const filteredVideos = videos.filter(video => {
-    const matchesCategory = selectedCategory === 'Todos' || video.category === selectedCategory;
+    let matchesCategory = false;
+    if (selectedCategory === 'Todos') {
+      matchesCategory = true;
+    } else if (video.category === selectedCategory) {
+      matchesCategory = true;
+    } else {
+      // Smart matching for city name categories
+      const cleanCat = selectedCategory.toLowerCase();
+      const videoCat = (video.category || '').toLowerCase();
+      const videoTitle = (video.title || '').toLowerCase();
+      const videoDesc = (video.description || '').toLowerCase();
+
+      // Check key parts of selectedCategory (e.g. "lajeado", "estrela", "arroio do meio", "encantado", "muçum", "roca sales", "taquari", "bom retiro", "santa tereza")
+      const keywords = cleanCat.split('/').map(s => s.trim()).filter(Boolean);
+      const matchesKeyword = keywords.some(kw => kw.length >= 3 && (videoCat.includes(kw) || videoTitle.includes(kw) || videoDesc.includes(kw)));
+
+      if (matchesKeyword) {
+        matchesCategory = true;
+      }
+    }
+
     const matchesSearch =
       video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (video.description && video.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (video.author && video.author.toLowerCase().includes(searchQuery.toLowerCase()));
+
     return matchesCategory && matchesSearch;
   });
 
@@ -169,38 +210,90 @@ export const VideosPage: React.FC<VideosPageProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredVideos.map((video) => {
               const thumbnail = getYouTubeThumbnailUrl(video.youtubeId);
+              const isPlayingInline = playingInlineVideoId === video.id;
 
               return (
                 <div
                   key={video.id}
-                  className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-xl cursor-pointer"
-                  onClick={() => setExpandedVideo(video)}
+                  className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-xl"
                 >
-                  {/* Card Thumbnail */}
+                  {/* Card Thumbnail / Player Area */}
                   <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                    <img
-                      src={thumbnail}
-                      alt={video.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    {isPlayingInline ? (
+                      <>
+                        <iframe
+                          src={getYouTubeEmbedUrl(video.youtubeId, true)}
+                          title={video.title}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                        {/* Overlay Controls for Inline Player */}
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10 no-print">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedVideo(video)}
+                            className="px-2.5 py-1 bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-extrabold rounded-lg shadow-lg flex items-center gap-1 cursor-pointer transition-transform active:scale-95 backdrop-blur-sm"
+                            title="Expandir vídeo para tela cheia / modal"
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                            <span>Expandir</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPlayingInlineVideoId(null)}
+                            className="p-1 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white rounded-lg shadow-lg cursor-pointer backdrop-blur-sm transition-colors"
+                            title="Fechar miniatura e voltar à imagem"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        className="w-full h-full cursor-pointer relative group/thumb"
+                        onClick={() => setPlayingInlineVideoId(video.id)}
+                        title="Clique para reproduzir o vídeo em miniatura"
+                      >
+                        <img
+                          src={thumbnail}
+                          alt={video.title}
+                          className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
+                        />
 
-                    {/* Dark gradient overlay & Play Icon */}
-                    <div className="absolute inset-0 bg-slate-950/20 group-hover:bg-slate-950/40 transition-colors flex items-center justify-center">
-                      <div className="p-3.5 rounded-full bg-red-600/90 text-white shadow-xl backdrop-blur-sm group-hover:scale-110 transition-transform flex items-center gap-2">
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
+                        {/* Dark gradient overlay & Play Icon */}
+                        <div className="absolute inset-0 bg-slate-950/25 group-hover/thumb:bg-slate-950/40 transition-colors flex items-center justify-center">
+                          <div className="p-3.5 rounded-full bg-red-600/95 text-white shadow-xl backdrop-blur-sm group-hover/thumb:scale-110 transition-transform flex items-center gap-2">
+                            <Play className="w-5 h-5 fill-current ml-0.5" />
+                          </div>
+                        </div>
+
+                        {/* Featured Tag */}
+                        {video.isFeatured && (
+                          <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-md flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 fill-slate-950" /> Destaque
+                          </span>
+                        )}
+
+                        {/* Quick Expand Button on Top Right */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedVideo(video);
+                          }}
+                          className="absolute top-2.5 right-2.5 px-2 py-1 bg-slate-900/80 hover:bg-red-600 text-white text-[10px] font-extrabold rounded-lg backdrop-blur-sm flex items-center gap-1 transition-colors shadow-md cursor-pointer"
+                          title="Expandir Vídeo"
+                        >
+                          <Maximize2 className="w-3 h-3" />
+                          <span>Expandir</span>
+                        </button>
+
+                        <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 text-white text-[10px] font-mono">
+                          Assistir em Miniatura
+                        </span>
                       </div>
-                    </div>
-
-                    {/* Featured Tag */}
-                    {video.isFeatured && (
-                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-md flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 fill-slate-950" /> Destaque
-                      </span>
                     )}
-
-                    <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 text-white text-[10px] font-mono">
-                      YouTube
-                    </span>
                   </div>
 
                   {/* Card Content */}
@@ -217,7 +310,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
                         )}
                       </div>
 
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                         {video.title}
                       </h4>
 
@@ -232,11 +325,9 @@ export const VideosPage: React.FC<VideosPageProps> = ({
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2 mt-auto">
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedVideo(video);
-                        }}
-                        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-600 dark:text-red-400 hover:text-red-500 cursor-pointer bg-red-50 dark:bg-red-950/30 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/40"
+                        onClick={() => setExpandedVideo(video)}
+                        className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-600 dark:text-red-400 hover:text-red-500 cursor-pointer bg-red-50 dark:bg-red-950/30 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/40 transition-colors active:scale-95"
+                        title="Expandir vídeo (reprodução automática)"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                         Expandir Vídeo
@@ -258,10 +349,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
 
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditVideo(video);
-                          }}
+                          onClick={() => onEditVideo(video)}
                           title="Editar vídeo (Requer operador)"
                           className="p-1.5 text-slate-400 hover:text-amber-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         >
@@ -270,10 +358,12 @@ export const VideosPage: React.FC<VideosPageProps> = ({
 
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
+                          onClick={() => {
                             if (expandedVideo?.id === video.id) {
                               setExpandedVideo(null);
+                            }
+                            if (playingInlineVideoId === video.id) {
+                              setPlayingInlineVideoId(null);
                             }
                             onDeleteVideo(video.id);
                           }}
@@ -363,9 +453,11 @@ export const VideosPage: React.FC<VideosPageProps> = ({
 
                 <button
                   onClick={() => setExpandedVideo(null)}
-                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer ml-1"
+                  title="Fechar (ESC)"
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer ml-1 flex items-center gap-1"
                 >
                   <X className="w-5 h-5" />
+                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700 rounded">ESC</kbd>
                 </button>
               </div>
             </div>
@@ -373,7 +465,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
             {/* Lightbox Video Player */}
             <div className="relative w-full bg-black aspect-video max-h-[560px]">
               <iframe
-                src={`${getYouTubeEmbedUrl(expandedVideo.youtubeId)}&autoplay=1`}
+                src={getYouTubeEmbedUrl(expandedVideo.youtubeId, true)}
                 title={expandedVideo.title}
                 className="absolute inset-0 w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

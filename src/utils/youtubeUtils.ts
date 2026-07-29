@@ -24,8 +24,8 @@ export function extractYouTubeId(url: string): string | null {
   return null;
 }
 
-export function getYouTubeEmbedUrl(youtubeId: string): string {
-  return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=0`;
+export function getYouTubeEmbedUrl(youtubeId: string, autoplay = false): string {
+  return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=${autoplay ? 1 : 0}`;
 }
 
 export function getYouTubeThumbnailUrl(youtubeId: string): string {

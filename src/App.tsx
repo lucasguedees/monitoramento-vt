@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
 import { StatsSummary } from './components/StatsSummary';
 import { CityOverviewCards } from './components/CityOverviewCards';
 import { RiverChart } from './components/RiverChart';
@@ -15,15 +15,17 @@ import { ShelterChart } from './components/Shelter/ShelterChart';
 import { ShelterReadingsTable } from './components/Shelter/ShelterReadingsTable';
 import { ShelterFormModal } from './components/Shelter/ShelterFormModal';
 import { ShelterReadingFormModal } from './components/Shelter/ShelterReadingFormModal';
-import { AboutPage } from './components/AboutPage';
+import { BlockedRoadsPage } from './components/RoadBlocks/BlockedRoadsPage';
 import { VideosPage } from './components/Videos/VideosPage';
 import { YouTubeVideoModal } from './components/Videos/YouTubeVideoModal';
+import { BackupRestoreModal } from './components/BackupRestoreModal';
 
-import { City, RiverReading, CalculatedReading, Shelter, ShelterReading, CalculatedShelterReading, YouTubeVideo } from './types';
-import { DEFAULT_CITIES } from './data/defaultCities';
+import { City, RiverReading, CalculatedReading, Shelter, ShelterReading, CalculatedShelterReading, YouTubeVideo, BlockedRoad } from './types';
+import { DEFAULT_CITIES, mergeWithDefaultCities } from './data/defaultCities';
 import { generateInitialSeedReadings } from './data/seedData';
 import { DEFAULT_SHELTERS, DEFAULT_DATA_SOURCES, generateInitialShelterReadings } from './data/shelterSeedData';
-import { DEFAULT_VIDEOS } from './data/defaultVideos';
+import { DEFAULT_VIDEOS, mergeWithDefaultVideos } from './data/defaultVideos';
+import { generateInitialBlockedRoads } from './data/blockedRoadsSeedData';
 
 import { calculateCalculatedReadings, deduplicateReadings } from './utils/riverUtils';
 import { calculateCalculatedShelterReadings } from './utils/shelterUtils';
@@ -33,7 +35,8 @@ import {
   saveDocument,
   deleteDocument,
   subscribeAppConfig,
-  saveAppConfig
+  saveAppConfig,
+  batchSaveDocuments
 } from './lib/firebase';
 
 const LOCAL_STORAGE_CITIES_KEY = 'taquari_flood_cities_v1';
@@ -41,12 +44,26 @@ const LOCAL_STORAGE_READINGS_KEY = 'taquari_flood_readings_v1';
 const LOCAL_STORAGE_SHELTERS_KEY = 'taquari_shelters_v1';
 const LOCAL_STORAGE_SHELTER_READINGS_KEY = 'taquari_shelter_readings_v1';
 const LOCAL_STORAGE_DATA_SOURCES_KEY = 'taquari_datasources_v1';
+const LOCAL_STORAGE_BLOCKED_ROADS_KEY = 'taquari_blocked_roads_v1';
 const LOCAL_STORAGE_PIN_KEY = 'taquari_admin_pin_v1';
 const SESSION_STORAGE_AUTH_KEY = 'taquari_admin_authorized_v1';
 
 export default function App() {
-  // Navigation tab state ('river' | 'shelters' | 'videos' | 'about')
-  const [activeTab, setActiveTab] = useState<'river' | 'shelters' | 'videos' | 'about'>('river');
+  // Navigation tab state ('river' | 'shelters' | 'roads' | 'videos')
+  const [activeTab, setActiveTab] = useState<'river' | 'shelters' | 'roads' | 'videos'>('river');
+
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('taquari_sidebar_collapsed_v1') === 'true';
+  });
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('taquari_sidebar_collapsed_v1', String(next));
+      return next;
+    });
+  };
 
   // --- 0. Admin Authorization State (Public read access, PIN protected write access) ---
   const [adminPin, setAdminPin] = useState<string>(() => {
@@ -67,7 +84,7 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_CITIES_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return mergeWithDefaultCities(parsed);
       }
     } catch (e) {
       console.error('Error reading saved cities:', e);
@@ -78,9 +95,9 @@ export default function App() {
   const [readings, setReadings] = useState<RiverReading[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_READINGS_KEY);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Error reading saved readings:', e);
@@ -98,7 +115,7 @@ export default function App() {
   const [shelters, setShelters] = useState<Shelter[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_SHELTERS_KEY);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
@@ -111,9 +128,9 @@ export default function App() {
   const [shelterReadings, setShelterReadings] = useState<ShelterReading[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_SHELTER_READINGS_KEY);
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Error reading saved shelter readings:', e);
@@ -147,13 +164,49 @@ export default function App() {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<YouTubeVideo | null>(null);
 
+  // --- 4. Blocked Roads State & Persistence ---
+  const [blockedRoads, setBlockedRoads] = useState<BlockedRoad[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error('Error reading saved blocked roads:', e);
+    }
+    return generateInitialBlockedRoads();
+  });
+
+  // --- Backup & Restore Modal State ---
+  const [isBackupRestoreModalOpen, setIsBackupRestoreModalOpen] = useState(false);
+
   // --- Firebase Real-time Subscriptions ---
   useEffect(() => {
-    const unsubCities = subscribeCollection<City>('cities', setCities, DEFAULT_CITIES);
-    const unsubReadings = subscribeCollection<RiverReading>('readings', setReadings, generateInitialSeedReadings());
+    const unsubCities = subscribeCollection<City>('cities', (loadedCities) => {
+      setCities(mergeWithDefaultCities(loadedCities));
+    }, DEFAULT_CITIES);
+    const unsubReadings = subscribeCollection<RiverReading>('readings', (loaded) => {
+      const now = new Date();
+      const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+      const timeRaw = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+      const maxKey = `${dateStr}T${timeRaw}`;
+
+      const validReadings: RiverReading[] = [];
+
+      for (const r of loaded) {
+        const key = (r.dateStr && r.timeStr) ? `${r.dateStr}T${r.timeStr}` : r.timestamp;
+        if (key <= maxKey) {
+          validReadings.push(r);
+        }
+      }
+
+      setReadings(validReadings);
+    }, generateInitialSeedReadings());
     const unsubShelters = subscribeCollection<Shelter>('shelters', setShelters, DEFAULT_SHELTERS);
     const unsubShelterReadings = subscribeCollection<ShelterReading>('shelterReadings', setShelterReadings, generateInitialShelterReadings());
     const unsubVideos = subscribeCollection<YouTubeVideo>('videos', setVideos, DEFAULT_VIDEOS);
+    const unsubBlockedRoads = subscribeCollection<BlockedRoad>('blockedRoads', setBlockedRoads, generateInitialBlockedRoads());
     const unsubPin = subscribeAppConfig('adminPin', (val) => {
       if (val) setAdminPin(val);
     });
@@ -176,10 +229,20 @@ export default function App() {
       unsubShelters();
       unsubShelterReadings();
       unsubVideos();
+      unsubBlockedRoads();
       unsubPin();
       unsubSources();
     };
   }, []);
+
+  // --- LocalStorage Sync Fallbacks ---
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY, JSON.stringify(blockedRoads));
+    } catch (e) {
+      console.error('Failed to save blocked roads:', e);
+    }
+  }, [blockedRoads]);
 
   // --- LocalStorage Sync Fallbacks ---
   useEffect(() => {
@@ -191,11 +254,16 @@ export default function App() {
   }, [cities]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_READINGS_KEY, JSON.stringify(readings));
-    } catch (e) {
-      console.error('Failed to save readings:', e);
-    }
+    const timer = setTimeout(() => {
+      try {
+        // Save at most the latest 500 readings as offline fallback to prevent main-thread freeze
+        const recentReadings = readings.length > 500 ? readings.slice(0, 500) : readings;
+        localStorage.setItem(LOCAL_STORAGE_READINGS_KEY, JSON.stringify(recentReadings));
+      } catch (e) {
+        // Ignore quota error quietly
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [readings]);
 
   useEffect(() => {
@@ -207,11 +275,15 @@ export default function App() {
   }, [shelters]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_SHELTER_READINGS_KEY, JSON.stringify(shelterReadings));
-    } catch (e) {
-      console.error('Failed to save shelter readings:', e);
-    }
+    const timer = setTimeout(() => {
+      try {
+        const recentShelterReadings = shelterReadings.length > 500 ? shelterReadings.slice(0, 500) : shelterReadings;
+        localStorage.setItem(LOCAL_STORAGE_SHELTER_READINGS_KEY, JSON.stringify(recentShelterReadings));
+      } catch (e) {
+        // Ignore quota error quietly
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [shelterReadings]);
 
   useEffect(() => {
@@ -391,8 +463,33 @@ export default function App() {
 
   const handleDeleteReading = (readingId: string) => {
     requireAdminAuth('Excluir registro de nível do rio', () => {
-      setReadings(prev => prev.filter(r => r.id !== readingId));
+      setReadings(prev => {
+        const remaining = prev.filter(r => r.id !== readingId);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_READINGS_KEY, JSON.stringify(remaining));
+        } catch (e) {}
+        return remaining;
+      });
       deleteDocument('readings', readingId).catch(console.error);
+    });
+  };
+
+  const handleClearAllReadings = (idsToDelete?: string[]) => {
+    requireAdminAuth('Excluir histórico de medições do rio', () => {
+      const ids = idsToDelete || readings.map(r => r.id);
+      if (ids.length === 0) return;
+      if (confirm(`Tem certeza de que deseja excluir permanentemente ${ids.length} lançamento(s) do histórico de medições? Esta ação não pode ser desfeita.`)) {
+        setReadings(prev => {
+          const remaining = prev.filter(r => !ids.includes(r.id));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_READINGS_KEY, JSON.stringify(remaining));
+          } catch (e) {}
+          return remaining;
+        });
+        ids.forEach(id => {
+          deleteDocument('readings', id).catch(console.error);
+        });
+      }
     });
   };
 
@@ -498,8 +595,33 @@ export default function App() {
 
   const handleDeleteShelterReading = (readingId: string) => {
     requireAdminAuth('Excluir registro histórico de abrigados', () => {
-      setShelterReadings(prev => prev.filter(r => r.id !== readingId));
+      setShelterReadings(prev => {
+        const remaining = prev.filter(r => r.id !== readingId);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_SHELTER_READINGS_KEY, JSON.stringify(remaining));
+        } catch (e) {}
+        return remaining;
+      });
       deleteDocument('shelterReadings', readingId).catch(console.error);
+    });
+  };
+
+  const handleClearAllShelterReadings = (idsToDelete?: string[]) => {
+    requireAdminAuth('Excluir histórico de abrigados', () => {
+      const ids = idsToDelete || shelterReadings.map(r => r.id);
+      if (ids.length === 0) return;
+      if (confirm(`Tem certeza de que deseja excluir permanentemente ${ids.length} lançamento(s) do histórico de abrigos? Esta ação não pode ser desfeita.`)) {
+        setShelterReadings(prev => {
+          const remaining = prev.filter(r => !ids.includes(r.id));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_SHELTER_READINGS_KEY, JSON.stringify(remaining));
+          } catch (e) {}
+          return remaining;
+        });
+        ids.forEach(id => {
+          deleteDocument('shelterReadings', id).catch(console.error);
+        });
+      }
     });
   };
 
@@ -544,8 +666,10 @@ export default function App() {
 
   const handleDeleteVideo = (videoId: string) => {
     requireAdminAuth('Excluir vídeo do YouTube', () => {
-      setVideos(prev => prev.filter(v => v.id !== videoId));
-      deleteDocument('videos', videoId).catch(console.error);
+      if (confirm('Tem certeza que deseja excluir este vídeo do sistema?')) {
+        setVideos(prev => prev.filter(v => v.id !== videoId));
+        deleteDocument('videos', videoId).catch(console.error);
+      }
     });
   };
 
@@ -621,18 +745,27 @@ export default function App() {
   const handleResetSeedData = () => {
     requireAdminAuth('Restaurar dados padrão', () => {
       if (confirm('Deseja restaurar as configurações e dados demonstrativos padrão de rios e abrigos?')) {
+        const seedReadings = generateInitialSeedReadings();
+        const seedShelterReadings = generateInitialShelterReadings();
+
         setCities(DEFAULT_CITIES);
-        setReadings(generateInitialSeedReadings());
+        setReadings(seedReadings);
         setShelters(DEFAULT_SHELTERS);
-        setShelterReadings(generateInitialShelterReadings());
+        setShelterReadings(seedShelterReadings);
         setDataSources(DEFAULT_DATA_SOURCES);
         setSelectedCityId('lajeado');
         setSelectedShelterId(null);
-        localStorage.removeItem(LOCAL_STORAGE_CITIES_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_READINGS_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_SHELTERS_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_SHELTER_READINGS_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_DATA_SOURCES_KEY);
+
+        localStorage.setItem(LOCAL_STORAGE_CITIES_KEY, JSON.stringify(DEFAULT_CITIES));
+        localStorage.setItem(LOCAL_STORAGE_READINGS_KEY, JSON.stringify(seedReadings));
+        localStorage.setItem(LOCAL_STORAGE_SHELTERS_KEY, JSON.stringify(DEFAULT_SHELTERS));
+        localStorage.setItem(LOCAL_STORAGE_SHELTER_READINGS_KEY, JSON.stringify(seedShelterReadings));
+        localStorage.setItem(LOCAL_STORAGE_DATA_SOURCES_KEY, JSON.stringify(DEFAULT_DATA_SOURCES));
+
+        batchSaveDocuments('cities', DEFAULT_CITIES).catch(console.error);
+        batchSaveDocuments('readings', seedReadings).catch(console.error);
+        batchSaveDocuments('shelters', DEFAULT_SHELTERS).catch(console.error);
+        batchSaveDocuments('shelterReadings', seedShelterReadings).catch(console.error);
       }
     });
   };
@@ -689,11 +822,95 @@ export default function App() {
     });
   };
 
+  const handleRestoreBackup = async (backupData: {
+    cities?: City[];
+    readings?: RiverReading[];
+    shelters?: Shelter[];
+    shelterReadings?: ShelterReading[];
+    videos?: YouTubeVideo[];
+    blockedRoads?: BlockedRoad[];
+    dataSources?: string[];
+  }) => {
+    if (backupData.cities && backupData.cities.length > 0) {
+      setCities(backupData.cities);
+      await batchSaveDocuments('cities', backupData.cities);
+    }
+    if (backupData.readings && backupData.readings.length > 0) {
+      setReadings(backupData.readings);
+      await batchSaveDocuments('readings', backupData.readings);
+    }
+    if (backupData.shelters && backupData.shelters.length > 0) {
+      setShelters(backupData.shelters);
+      await batchSaveDocuments('shelters', backupData.shelters);
+    }
+    if (backupData.shelterReadings && backupData.shelterReadings.length > 0) {
+      setShelterReadings(backupData.shelterReadings);
+      await batchSaveDocuments('shelterReadings', backupData.shelterReadings);
+    }
+    if (backupData.videos && backupData.videos.length > 0) {
+      setVideos(backupData.videos);
+      await batchSaveDocuments('videos', backupData.videos);
+    }
+    if (backupData.blockedRoads && backupData.blockedRoads.length > 0) {
+      setBlockedRoads(backupData.blockedRoads);
+      await batchSaveDocuments('blockedRoads', backupData.blockedRoads);
+    }
+    if (backupData.dataSources && backupData.dataSources.length > 0) {
+      setDataSources(backupData.dataSources);
+      await saveAppConfig('dataSources', JSON.stringify(backupData.dataSources));
+    }
+  };
+
+  // --- Blocked Roads CRUD Handlers ---
+  const handleAddBlockedRoad = async (roadData: Omit<BlockedRoad, 'id' | 'createdAt'>) => {
+    const newRoad: BlockedRoad = {
+      ...roadData,
+      id: `road-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setBlockedRoads((prev) => {
+      const updated = [newRoad, ...prev];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    await saveDocument('blockedRoads', newRoad);
+  };
+
+  const handleUpdateBlockedRoad = async (id: string, updatedFields: Partial<BlockedRoad>) => {
+    setBlockedRoads((prev) => {
+      const updatedList = prev.map((r) => (r.id === id ? { ...r, ...updatedFields } : r));
+      try {
+        localStorage.setItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
+    const existing = blockedRoads.find((r) => r.id === id);
+    if (existing) {
+      const updated = { ...existing, ...updatedFields };
+      await saveDocument('blockedRoads', updated);
+    }
+  };
+
+  const handleDeleteBlockedRoad = (id: string) => {
+    setBlockedRoads((prev) => {
+      const remaining = prev.filter((r) => r.id !== id);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY, JSON.stringify(remaining));
+      } catch (e) {}
+      return remaining;
+    });
+    deleteDocument('blockedRoads', id).catch((err) => {
+      console.error('Erro ao excluir via interditada no Firebase:', err);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
       
-      {/* Header with Navigation Tabs */}
-      <Header
+      {/* Collapsible Left Sidebar Navigation */}
+      <Sidebar
         activeTab={activeTab}
         onChangeTab={setActiveTab}
         onOpenNewReadingModal={handleOpenNewReadingModalGeneral}
@@ -701,6 +918,7 @@ export default function App() {
         onOpenNewShelterReadingModal={() => handleOpenShelterReadingModal()}
         onOpenNewShelterModal={handleOpenNewShelterModal}
         onOpenNewVideoModal={handleOpenNewVideoModal}
+        onOpenBackupRestoreModal={() => setIsBackupRestoreModalOpen(true)}
         onResetSeedData={handleResetSeedData}
         onExportCSV={handleExportCSV}
         readings={calculatedReadings}
@@ -708,13 +926,19 @@ export default function App() {
         shelterReadings={calculatedShelterReadings}
         shelters={shelters}
         videosCount={videos.length}
+        blockedRoadsCount={blockedRoads.length}
         isAdminAuthorized={isAdminAuthorized}
         onOpenAdminAuth={(actionName) => requireAdminAuth(actionName || 'Acesso Restrito ao Operador', () => {})}
         onLogoutAdmin={handleLogoutAdmin}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
       />
 
-      {/* Main Container */}
-      <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Main Container with dynamic margin for left sidebar */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-72'}`}>
+        
+        {/* Main Content */}
+        <main id="main-content" className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* ==================== TAB 1: RIO TAQUARI ==================== */}
         {activeTab === 'river' && (
@@ -749,7 +973,7 @@ export default function App() {
                   onClick={handleSyncAutomatedReadings}
                   disabled={isSyncing}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer active:scale-95 disabled:opacity-50"
-                  title="Sincronizar medições automaticamente das estações de monitoramento (Lajeado, Arroio do Meio, Encantado, Muçum, Roca Sales, Santa Tereza)"
+                  title="Sincronizar medições automaticamente das estações de monitoramento (Lajeado/Estrela, Arroio do Meio, Bom Retiro do Sul, Taquari, Encantado, Muçum, Roca Sales, Santa Tereza)"
                 >
                   <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
@@ -804,6 +1028,7 @@ export default function App() {
               cities={cities}
               onEditReading={handleEditReading}
               onDeleteReading={handleDeleteReading}
+              onClearAllReadings={handleClearAllReadings}
               onExportCSV={handleExportCSV}
               onSyncAutomatedReadings={handleSyncAutomatedReadings}
               isSyncing={isSyncing}
@@ -892,6 +1117,7 @@ export default function App() {
               selectedCity={selectedShelterCity}
               onEditReading={handleEditShelterReading}
               onDeleteReading={handleDeleteShelterReading}
+              onClearAllReadings={handleClearAllShelterReadings}
               onExportCSV={handleExportCSV}
               onOpenNewReadingModal={() => handleOpenShelterReadingModal()}
               isAdminAuthorized={isAdminAuthorized}
@@ -900,7 +1126,19 @@ export default function App() {
           </div>
         )}
 
-        {/* ==================== TAB 3: VÍDEOS YOUTUBE ==================== */}
+        {/* ==================== TAB 3: VIAS INTERDITADAS ==================== */}
+        {activeTab === 'roads' && (
+          <BlockedRoadsPage
+            blockedRoads={blockedRoads}
+            onAddRoad={handleAddBlockedRoad}
+            onUpdateRoad={handleUpdateBlockedRoad}
+            onDeleteRoad={handleDeleteBlockedRoad}
+            isAdminAuthorized={isAdminAuthorized}
+            onRequestAdminAuth={(actionName, cb) => requireAdminAuth(actionName, cb)}
+          />
+        )}
+
+        {/* ==================== TAB 4: VÍDEOS YOUTUBE ==================== */}
         {activeTab === 'videos' && (
           <VideosPage
             videos={videos}
@@ -909,15 +1147,6 @@ export default function App() {
             onDeleteVideo={handleDeleteVideo}
             isAdminAuthorized={isAdminAuthorized}
             onOpenAdminAuth={() => requireAdminAuth('Acesso Restrito ao Operador', () => {})}
-          />
-        )}
-
-        {/* ==================== TAB 4: SOBRE & TRANSPARÊNCIA ==================== */}
-        {activeTab === 'about' && (
-          <AboutPage
-            onNavigateTab={setActiveTab}
-            onOpenAdminAuth={() => requireAdminAuth('Acesso Restrito ao Operador', () => {})}
-            isAdminAuthorized={isAdminAuthorized}
           />
         )}
 
@@ -937,6 +1166,7 @@ export default function App() {
           </p>
         </div>
       </footer>
+      </div>
 
       {/* Modals for River */}
       <ReadingFormModal
@@ -1011,6 +1241,20 @@ export default function App() {
         currentPin={adminPin}
         onChangePin={handleChangePin}
         pendingActionName={pendingActionName}
+      />
+
+      {/* Backup and Restore Modal */}
+      <BackupRestoreModal
+        isOpen={isBackupRestoreModalOpen}
+        onClose={() => setIsBackupRestoreModalOpen(false)}
+        cities={cities}
+        readings={readings}
+        shelters={shelters}
+        shelterReadings={shelterReadings}
+        videos={videos}
+        blockedRoads={blockedRoads}
+        dataSources={dataSources}
+        onRestoreData={handleRestoreBackup}
       />
 
     </div>
