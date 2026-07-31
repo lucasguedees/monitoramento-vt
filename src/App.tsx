@@ -117,12 +117,12 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_SHELTERS_KEY);
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed.filter((s: any) => !s.id.startsWith('shelter-lajeado-') && !s.id.startsWith('shelter-estrela-') && !s.id.startsWith('shelter-arroio-') && !s.id.startsWith('shelter-cruzeiro-') && !s.id.startsWith('shelter-encantado-') && !s.id.startsWith('shelter-mucum-') && !s.id.startsWith('shelter-roca') && !s.id.startsWith('shelter-taquari-') && !s.id.startsWith('shelter-bomretiro-') && !s.id.startsWith('shelter-santatereza-') && !s.id.startsWith('shelter-teutonia-'));
       }
     } catch (e) {
       console.error('Error reading saved shelters:', e);
     }
-    return DEFAULT_SHELTERS;
+    return [];
   });
 
   const [shelterReadings, setShelterReadings] = useState<ShelterReading[]>(() => {
@@ -130,12 +130,12 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_SHELTER_READINGS_KEY);
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return parsed.filter((sr: any) => !sr.id.startsWith('sr-'));
       }
     } catch (e) {
       console.error('Error reading saved shelter readings:', e);
     }
-    return generateInitialShelterReadings();
+    return [];
   });
 
   const [dataSources, setDataSources] = useState<string[]>(() => {
@@ -160,7 +160,16 @@ export default function App() {
   const [preselectedShelterForModal, setPreselectedShelterForModal] = useState<string | null>(null);
 
   // --- 3. YouTube Videos State & Persistence ---
-  const [videos, setVideos] = useState<YouTubeVideo[]>(DEFAULT_VIDEOS);
+  const [videos, setVideos] = useState<YouTubeVideo[]>(() => {
+    try {
+      const saved = localStorage.getItem('taquari_videos_v1');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((v: any) => !v.id.startsWith('video-1') && !v.id.startsWith('video-2') && !v.id.startsWith('video-3') && !v.id.startsWith('video-4') && !v.id.startsWith('video-5') && !v.id.startsWith('video-6') && !v.id.startsWith('video-7') && !v.id.startsWith('video-8') && !v.id.startsWith('video-9') && !v.id.startsWith('video-10') && !v.id.startsWith('video-11') && !v.id.startsWith('video-12') && !v.id.startsWith('video-13') && !v.id.startsWith('video-14') && !v.id.startsWith('video-15') && !v.id.startsWith('video-16') && !v.id.startsWith('video-17') && !v.id.startsWith('video-18') && !v.id.startsWith('video-19') && !v.id.startsWith('video-20') && !v.id.startsWith('video-21'));
+      }
+    } catch (e) {}
+    return [];
+  });
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<YouTubeVideo | null>(null);
 
@@ -170,12 +179,12 @@ export default function App() {
       const saved = localStorage.getItem(LOCAL_STORAGE_BLOCKED_ROADS_KEY);
       if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return parsed.filter((r: any) => !['road-1', 'road-2', 'road-3', 'road-4', 'road-5', 'road-6', 'road-7', 'road-8'].includes(r.id));
       }
     } catch (e) {
       console.error('Error reading saved blocked roads:', e);
     }
-    return generateInitialBlockedRoads();
+    return [];
   });
 
   // --- Backup & Restore Modal State ---
@@ -203,10 +212,18 @@ export default function App() {
 
       setReadings(validReadings);
     }, generateInitialSeedReadings());
-    const unsubShelters = subscribeCollection<Shelter>('shelters', setShelters, DEFAULT_SHELTERS);
-    const unsubShelterReadings = subscribeCollection<ShelterReading>('shelterReadings', setShelterReadings, generateInitialShelterReadings());
-    const unsubVideos = subscribeCollection<YouTubeVideo>('videos', setVideos, DEFAULT_VIDEOS);
-    const unsubBlockedRoads = subscribeCollection<BlockedRoad>('blockedRoads', setBlockedRoads, generateInitialBlockedRoads());
+    const unsubShelters = subscribeCollection<Shelter>('shelters', (items) => {
+      setShelters(items.filter((s: any) => !s.id.startsWith('shelter-lajeado-') && !s.id.startsWith('shelter-estrela-') && !s.id.startsWith('shelter-arroio-') && !s.id.startsWith('shelter-cruzeiro-') && !s.id.startsWith('shelter-encantado-') && !s.id.startsWith('shelter-mucum-') && !s.id.startsWith('shelter-roca') && !s.id.startsWith('shelter-taquari-') && !s.id.startsWith('shelter-bomretiro-') && !s.id.startsWith('shelter-santatereza-') && !s.id.startsWith('shelter-teutonia-')));
+    }, []);
+    const unsubShelterReadings = subscribeCollection<ShelterReading>('shelterReadings', (items) => {
+      setShelterReadings(items.filter((sr: any) => !sr.id.startsWith('sr-')));
+    }, []);
+    const unsubVideos = subscribeCollection<YouTubeVideo>('videos', (items) => {
+      setVideos(items.filter((v: any) => !v.id.startsWith('video-1') && !v.id.startsWith('video-2') && !v.id.startsWith('video-3') && !v.id.startsWith('video-4') && !v.id.startsWith('video-5') && !v.id.startsWith('video-6') && !v.id.startsWith('video-7') && !v.id.startsWith('video-8') && !v.id.startsWith('video-9') && !v.id.startsWith('video-10') && !v.id.startsWith('video-11') && !v.id.startsWith('video-12') && !v.id.startsWith('video-13') && !v.id.startsWith('video-14') && !v.id.startsWith('video-15') && !v.id.startsWith('video-16') && !v.id.startsWith('video-17') && !v.id.startsWith('video-18') && !v.id.startsWith('video-19') && !v.id.startsWith('video-20') && !v.id.startsWith('video-21')));
+    }, []);
+    const unsubBlockedRoads = subscribeCollection<BlockedRoad>('blockedRoads', (items) => {
+      setBlockedRoads(items.filter((r: any) => !['road-1', 'road-2', 'road-3', 'road-4', 'road-5', 'road-6', 'road-7', 'road-8'].includes(r.id)));
+    }, []);
     const unsubPin = subscribeAppConfig('adminPin', (val) => {
       if (val) setAdminPin(val);
     });
