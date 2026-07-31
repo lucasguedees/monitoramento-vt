@@ -15,7 +15,6 @@ import {
   Youtube,
   FileText,
   Loader2,
-  Camera,
   Database,
   PhoneCall,
   AlertOctagon,
@@ -74,47 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
 }) => {
-  const [isCapturingScreen, setIsCapturingScreen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  const handleTakePrintscreen = async () => {
-    if (isCapturingScreen) return;
-    setIsCapturingScreen(true);
-    try {
-      const targetElement =
-        document.getElementById('main-content') ||
-        document.getElementById('root') ||
-        document.body;
-      const html2canvasModule = await import('html2canvas');
-      const html2canvasFn = (html2canvasModule.default || html2canvasModule) as any;
-
-      const canvas = await html2canvasFn(targetElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        ignoreElements: (element: Element) => {
-          return (
-            element.tagName === 'IFRAME' ||
-            element.classList.contains('no-print')
-          );
-        },
-        windowWidth: targetElement.scrollWidth,
-        windowHeight: targetElement.scrollHeight,
-      });
-
-      const image = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      const dateStr = new Date().toISOString().slice(0, 10);
-      link.download = `printscreen-monitoramento-${activeTab}-${dateStr}.png`;
-      link.href = image;
-      link.click();
-    } catch (err) {
-      console.error('Erro ao tirar printscreen da página:', err);
-      alert('Ocorreu um erro ao capturar o printscreen da página.');
-    } finally {
-      setIsCapturingScreen(false);
-    }
-  };
 
   // Compute overall river status summary across cities
   const latestByCity = new Map<string, CalculatedReading>();
@@ -189,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Mobile Top Header (Visible only on small screens) */}
-      <div className="md:hidden sticky top-0 z-40 bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between text-white shadow-md">
+      <div className="md:hidden no-print sticky top-0 z-40 bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between text-white shadow-md">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-gradient-to-tr from-cyan-600 to-indigo-600 rounded-xl text-white shadow-sm">
             <Waves className="w-5 h-5 animate-pulse" />
@@ -215,14 +174,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
-          className="md:hidden fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-fadeIn"
+          className="md:hidden no-print fixed inset-0 z-40 bg-black/70 backdrop-blur-sm animate-fadeIn"
         />
       )}
 
       {/* Main Collapsible Sidebar Container */}
       <aside
         id="main-sidebar"
-        className={`fixed top-0 left-0 bottom-0 z-50 bg-slate-900 border-r border-slate-800 text-white flex flex-col transition-all duration-300 ease-in-out shadow-2xl ${
+        className={`no-print fixed top-0 left-0 bottom-0 z-50 bg-slate-900 border-r border-slate-800 text-white flex flex-col transition-all duration-300 ease-in-out shadow-2xl ${
           isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0'
         } ${isCollapsed ? 'md:w-20' : 'md:w-72'}`}
       >
@@ -480,35 +439,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
 
-            {/* Printscreen & CSV Buttons */}
-            <div className={`grid gap-1.5 ${isCollapsed ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              <button
-                id="btn-export-printscreen-sidebar"
-                onClick={handleTakePrintscreen}
-                disabled={isCapturingScreen}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-700 text-xs font-semibold transition-all cursor-pointer active:scale-95 disabled:opacity-50 ${
-                  isCollapsed ? 'p-2.5' : ''
-                }`}
-                title="Capturar printscreen em PNG"
-              >
-                {isCapturingScreen ? (
-                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
-                ) : (
-                  <Camera className="w-4 h-4 text-cyan-400 shrink-0" />
-                )}
-                {!isCollapsed && <span>Print</span>}
-              </button>
-
+            {/* CSV Export Button */}
+            <div>
               <button
                 id="btn-export-csv-sidebar"
                 onClick={onExportCSV}
-                className={`flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-700 text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
+                className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-700 text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                   isCollapsed ? 'p-2.5' : ''
                 }`}
                 title="Exportar dados em CSV"
               >
                 <Download className="w-4 h-4 text-emerald-400 shrink-0" />
-                {!isCollapsed && <span>CSV</span>}
+                {!isCollapsed && <span>Exportar CSV</span>}
               </button>
             </div>
 

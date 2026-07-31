@@ -11,7 +11,8 @@ import {
   Check,
   Building2,
   Navigation,
-  Sparkles
+  Sparkles,
+  Plus
 } from 'lucide-react';
 import { BlockedRoad, RoadBlockStatus } from '../../types';
 import { RoadBlockMap } from './RoadBlockMap';
@@ -61,7 +62,12 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
   initialData,
   cityList = DEFAULT_VALE_CITIES,
 }) => {
+  const combinedCities = Array.from(new Set([...cityList, ...DEFAULT_VALE_CITIES])).sort();
+
   const [cityName, setCityName] = useState('Lajeado');
+  const [isCustomCity, setIsCustomCity] = useState(false);
+  const [customCityName, setCustomCityName] = useState('');
+
   const [locationName, setLocationName] = useState('');
   const [status, setStatus] = useState<RoadBlockStatus>('total');
   const [reason, setReason] = useState('');
@@ -76,7 +82,17 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      setCityName(initialData.cityName || 'Lajeado');
+      const initialCity = initialData.cityName || 'Lajeado';
+      if (combinedCities.includes(initialCity)) {
+        setCityName(initialCity);
+        setIsCustomCity(false);
+        setCustomCityName('');
+      } else {
+        setCityName('__custom__');
+        setIsCustomCity(true);
+        setCustomCityName(initialCity);
+      }
+
       setLocationName(initialData.locationName || '');
       setStatus(initialData.status || 'total');
       setReason(initialData.reason || '');
@@ -87,7 +103,9 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
       setExpectedRelease(initialData.expectedRelease || '');
       setNotes(initialData.notes || '');
     } else {
-      setCityName('Lajeado');
+      setCityName(combinedCities[0] || 'Lajeado');
+      setIsCustomCity(false);
+      setCustomCityName('');
       setLocationName('');
       setStatus('total');
       setReason('');
@@ -118,15 +136,27 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
   };
 
   const handleCityChange = (city: string) => {
-    setCityName(city);
-    if (CITY_COORDINATES[city]) {
-      setLatitude(CITY_COORDINATES[city].lat);
-      setLongitude(CITY_COORDINATES[city].lng);
+    if (city === '__custom__') {
+      setIsCustomCity(true);
+    } else {
+      setIsCustomCity(false);
+      setCityName(city);
+      if (CITY_COORDINATES[city]) {
+        setLatitude(CITY_COORDINATES[city].lat);
+        setLongitude(CITY_COORDINATES[city].lng);
+      }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const finalCityName = isCustomCity ? customCityName.trim() : cityName;
+
+    if (!finalCityName) {
+      alert('Por favor selecione ou informe o nome do município.');
+      return;
+    }
 
     if (!locationName.trim()) {
       alert('Por favor preencha o endereço ou nome do trecho/rua interditado.');
@@ -135,7 +165,7 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
 
     onSave({
       id: initialData?.id,
-      cityName,
+      cityName: finalCityName,
       locationName: locationName.trim(),
       status,
       reason: reason.trim() || undefined,
@@ -184,21 +214,68 @@ export const RoadBlockFormModal: React.FC<RoadBlockFormModalProps> = ({
           {/* City & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-cyan-400" />
-                Município
-              </label>
-              <select
-                value={cityName}
-                onChange={(e) => handleCityChange(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-cyan-500"
-              >
-                {cityList.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-300 uppercase flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-cyan-400" />
+                  Município
+                </label>
+                {!isCustomCity ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCity(true);
+                      setCustomCityName('');
+                    }}
+                    className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    + Incluir outra cidade
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCity(false);
+                      setCityName(combinedCities[0] || 'Lajeado');
+                    }}
+                    className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    Escolher da lista
+                  </button>
+                )}
+              </div>
+
+              {!isCustomCity ? (
+                <select
+                  value={cityName}
+                  onChange={(e) => handleCityChange(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-cyan-500"
+                >
+                  {combinedCities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                  <option value="__custom__" className="text-cyan-400 font-bold">
+                    + Outra cidade (Digitar nova)...
                   </option>
-                ))}
-              </select>
+                </select>
+              ) : (
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    value={customCityName}
+                    onChange={(e) => setCustomCityName(e.target.value)}
+                    placeholder="Digite o nome da nova cidade..."
+                    required
+                    autoFocus
+                    className="w-full bg-slate-950 border border-cyan-500/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-medium shadow-sm"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Digite o nome da cidade. Ela será vinculada a este registro.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

@@ -3,6 +3,19 @@ import L from 'leaflet';
 import { Maximize2, Minimize2, LocateFixed, Layers, Search, X, AlertOctagon, AlertTriangle, CheckCircle2, MapPin, Filter } from 'lucide-react';
 import { BlockedRoad } from '../../types';
 
+// Safeguard Leaflet against detached DOM elements during React component unmounts
+if (typeof window !== 'undefined' && L && L.DomUtil) {
+  const origGetPosition = L.DomUtil.getPosition;
+  L.DomUtil.getPosition = function (el: HTMLElement) {
+    if (!el) return new L.Point(0, 0);
+    try {
+      return origGetPosition.call(L.DomUtil, el) || new L.Point(0, 0);
+    } catch (e) {
+      return new L.Point(0, 0);
+    }
+  };
+}
+
 interface RoadBlockMapProps {
   blockedRoads: BlockedRoad[];
   selectedRoadId?: string | null;
@@ -159,6 +172,8 @@ export const RoadBlockMap: React.FC<RoadBlockMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
+    let resizeObserver: ResizeObserver | null = null;
+
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         center: isPicker ? [pickerLat, pickerLng] : defaultCenter,
@@ -186,23 +201,57 @@ export const RoadBlockMap: React.FC<RoadBlockMapProps> = ({
       mapInstanceRef.current = map;
       setIsMapReady(true);
 
-      setTimeout(() => {
-        map.invalidateSize();
+      const timer = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          try {
+            mapInstanceRef.current.invalidateSize();
+          } catch (e) {}
+        }
       }, 100);
 
-      const resizeObserver = new ResizeObserver(() => {
-        map.invalidateSize();
+      resizeObserver = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+          try {
+            mapInstanceRef.current.invalidateSize();
+          } catch (e) {}
+        }
       });
       resizeObserver.observe(mapContainerRef.current);
-    }
 
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        setIsMapReady(false);
-      }
-    };
+      return () => {
+        clearTimeout(timer);
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+
+        // Safely remove markers first
+        Object.keys(markersRef.current).forEach((id) => {
+          try {
+            markersRef.current[id].closePopup();
+            markersRef.current[id].remove();
+          } catch (e) {}
+        });
+        markersRef.current = {};
+
+        if (pickerMarkerRef.current) {
+          try {
+            pickerMarkerRef.current.closePopup();
+            pickerMarkerRef.current.remove();
+          } catch (e) {}
+          pickerMarkerRef.current = null;
+        }
+
+        if (mapInstanceRef.current) {
+          try {
+            mapInstanceRef.current.stop();
+            mapInstanceRef.current.off();
+            mapInstanceRef.current.remove();
+          } catch (e) {}
+          mapInstanceRef.current = null;
+          setIsMapReady(false);
+        }
+      };
+    }
   }, []);
 
   // Invalidate size and refit bounds whenever full-screen is toggled
@@ -270,11 +319,19 @@ export const RoadBlockMap: React.FC<RoadBlockMapProps> = ({
       }
 
       return () => {
-        map.off('click', handleMapClick);
+        try {
+          map.off('click', handleMapClick);
+          if (pickerMarkerRef.current) {
+            pickerMarkerRef.current.remove();
+            pickerMarkerRef.current = null;
+          }
+        } catch (e) {}
       };
     } else {
       if (pickerMarkerRef.current) {
-        pickerMarkerRef.current.remove();
+        try {
+          pickerMarkerRef.current.remove();
+        } catch (e) {}
         pickerMarkerRef.current = null;
       }
     }

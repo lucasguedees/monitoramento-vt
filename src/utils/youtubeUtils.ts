@@ -24,8 +24,16 @@ export function extractYouTubeId(url: string): string | null {
   return null;
 }
 
-export function getYouTubeEmbedUrl(youtubeId: string, autoplay = false): string {
-  return `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&autoplay=${autoplay ? 1 : 0}`;
+export function getYouTubeEmbedUrl(youtubeId: string, autoplay = true, mute = true): string {
+  const params = new URLSearchParams({
+    rel: '0',
+    autoplay: autoplay ? '1' : '0',
+    mute: mute ? '1' : '0',
+    enablejsapi: '1',
+    loop: '1',
+    playlist: youtubeId
+  });
+  return `https://www.youtube-nocookie.com/embed/${youtubeId}?${params.toString()}`;
 }
 
 export function getYouTubeThumbnailUrl(youtubeId: string): string {

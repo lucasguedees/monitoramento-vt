@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2, Camera, Database, UploadCloud, PhoneCall, Phone, AlertOctagon } from 'lucide-react';
+import { Waves, Plus, Building2, RefreshCw, AlertTriangle, ShieldCheck, Download, Home, Users, Activity, Lock, Unlock, KeyRound, CloudCheck, Info, Youtube, Printer, FileText, Loader2, Database, UploadCloud, PhoneCall, Phone, AlertOctagon } from 'lucide-react';
 import { CalculatedReading, City, CalculatedShelterReading, Shelter } from '../types';
 
 interface HeaderProps {
@@ -45,44 +45,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdminAuth,
   onLogoutAdmin,
 }) => {
-  const [isCapturingScreen, setIsCapturingScreen] = useState(false);
-
-  const handleTakePrintscreen = async () => {
-    if (isCapturingScreen) return;
-    setIsCapturingScreen(true);
-    try {
-      const targetElement = document.getElementById('main-content') || document.getElementById('root') || document.body;
-      const html2canvasModule = await import('html2canvas');
-      const html2canvasFn = (html2canvasModule.default || html2canvasModule) as any;
-
-      const canvas = await html2canvasFn(targetElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        ignoreElements: (element: Element) => {
-          return (
-            element.tagName === 'IFRAME' ||
-            element.classList.contains('no-print')
-          );
-        },
-        windowWidth: targetElement.scrollWidth,
-        windowHeight: targetElement.scrollHeight,
-      });
-
-      const image = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      const dateStr = new Date().toISOString().slice(0, 10);
-      link.download = `printscreen-monitoramento-${activeTab}-${dateStr}.png`;
-      link.href = image;
-      link.click();
-    } catch (err) {
-      console.error('Erro ao tirar printscreen da página:', err);
-      alert('Ocorreu um erro ao capturar o printscreen da página.');
-    } finally {
-      setIsCapturingScreen(false);
-    }
-  };
-
   // Compute overall river status summary across cities
   const latestByCity = new Map<string, CalculatedReading>();
   readings.forEach(r => {
@@ -221,34 +183,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* Printscreen (Camera) & CSV Export Group */}
-              <div className="flex items-center gap-1.5">
-                {/* Printscreen Button (Icon Only) */}
-                <button
-                  id="btn-export-printscreen"
-                  onClick={handleTakePrintscreen}
-                  disabled={isCapturingScreen}
-                  className="p-2 h-9 w-9 inline-flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Capturar printscreen de toda a página (Imagem PNG)"
-                >
-                  {isCapturingScreen ? (
-                    <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-                  ) : (
-                    <Camera className="w-4 h-4 text-cyan-400" />
-                  )}
-                </button>
-
-                {/* CSV Button */}
-                <button
-                  id="btn-export-csv"
-                  onClick={onExportCSV}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
-                  title="Exportar dados em planilha CSV"
-                >
-                  <Download className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>CSV</span>
-                </button>
-              </div>
+              {/* CSV Export Button */}
+              <button
+                id="btn-export-csv"
+                onClick={onExportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-2 h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-700 text-xs font-semibold transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Exportar dados em planilha CSV"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>CSV</span>
+              </button>
 
               {/* Tab-Specific Action Buttons */}
               {activeTab === 'shelters' && (

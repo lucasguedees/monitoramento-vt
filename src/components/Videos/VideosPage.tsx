@@ -188,7 +188,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
             Vídeos Disponíveis ({filteredVideos.length})
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Clique na miniatura ou em &quot;Expandir Vídeo&quot; para assistir
+            Todas as miniaturas estão rodando automaticamente. Clique em &quot;Expandir com Som&quot; para assistir com áudio.
           </p>
         </div>
 
@@ -209,91 +209,43 @@ export const VideosPage: React.FC<VideosPageProps> = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredVideos.map((video) => {
-              const thumbnail = getYouTubeThumbnailUrl(video.youtubeId);
-              const isPlayingInline = playingInlineVideoId === video.id;
-
               return (
                 <div
                   key={video.id}
                   className="group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-xl"
                 >
-                  {/* Card Thumbnail / Player Area */}
+                  {/* Card Thumbnail / Player Area - Auto-playing video embed */}
                   <div className="relative aspect-video bg-slate-950 overflow-hidden">
-                    {isPlayingInline ? (
-                      <>
-                        <iframe
-                          src={getYouTubeEmbedUrl(video.youtubeId, true)}
-                          title={video.title}
-                          className="w-full h-full border-0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                        {/* Overlay Controls for Inline Player */}
-                        <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10 no-print">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedVideo(video)}
-                            className="px-2.5 py-1 bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-extrabold rounded-lg shadow-lg flex items-center gap-1 cursor-pointer transition-transform active:scale-95 backdrop-blur-sm"
-                            title="Expandir vídeo para tela cheia / modal"
-                          >
-                            <Maximize2 className="w-3 h-3" />
-                            <span>Expandir</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPlayingInlineVideoId(null)}
-                            className="p-1 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white rounded-lg shadow-lg cursor-pointer backdrop-blur-sm transition-colors"
-                            title="Fechar miniatura e voltar à imagem"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div
-                        className="w-full h-full cursor-pointer relative group/thumb"
-                        onClick={() => setPlayingInlineVideoId(video.id)}
-                        title="Clique para reproduzir o vídeo em miniatura"
-                      >
-                        <img
-                          src={thumbnail}
-                          alt={video.title}
-                          className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
-                        />
+                    <iframe
+                      src={getYouTubeEmbedUrl(video.youtubeId, true, true)}
+                      title={video.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
 
-                        {/* Dark gradient overlay & Play Icon */}
-                        <div className="absolute inset-0 bg-slate-950/25 group-hover/thumb:bg-slate-950/40 transition-colors flex items-center justify-center">
-                          <div className="p-3.5 rounded-full bg-red-600/95 text-white shadow-xl backdrop-blur-sm group-hover/thumb:scale-110 transition-transform flex items-center gap-2">
-                            <Play className="w-5 h-5 fill-current ml-0.5" />
-                          </div>
-                        </div>
-
-                        {/* Featured Tag */}
-                        {video.isFeatured && (
-                          <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-md flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 fill-slate-950" /> Destaque
-                          </span>
-                        )}
-
-                        {/* Quick Expand Button on Top Right */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedVideo(video);
-                          }}
-                          className="absolute top-2.5 right-2.5 px-2 py-1 bg-slate-900/80 hover:bg-red-600 text-white text-[10px] font-extrabold rounded-lg backdrop-blur-sm flex items-center gap-1 transition-colors shadow-md cursor-pointer"
-                          title="Expandir Vídeo"
-                        >
-                          <Maximize2 className="w-3 h-3" />
-                          <span>Expandir</span>
-                        </button>
-
-                        <span className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md bg-slate-950/80 text-white text-[10px] font-mono">
-                          Assistir em Miniatura
+                    {/* Top Overlay Badges & Action */}
+                    <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none z-10">
+                      {video.isFeatured ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-md flex items-center gap-1 pointer-events-auto">
+                          <Sparkles className="w-3 h-3 fill-slate-950" /> Destaque
                         </span>
-                      </div>
-                    )}
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-900/80 text-red-400 text-[10px] font-bold border border-red-500/30 backdrop-blur-sm flex items-center gap-1 pointer-events-auto">
+                          <Radio className="w-3 h-3 text-red-500 animate-pulse" /> Auto-executando
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setExpandedVideo(video)}
+                        className="px-2.5 py-1 bg-slate-900/90 hover:bg-red-600 text-white text-[10px] font-extrabold rounded-lg backdrop-blur-sm flex items-center gap-1 transition-colors shadow-md cursor-pointer pointer-events-auto"
+                        title="Expandir Vídeo com áudio"
+                      >
+                        <Maximize2 className="w-3 h-3" />
+                        <span>Expandir com Som</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Card Content */}
@@ -327,7 +279,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
                         type="button"
                         onClick={() => setExpandedVideo(video)}
                         className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-600 dark:text-red-400 hover:text-red-500 cursor-pointer bg-red-50 dark:bg-red-950/30 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/40 transition-colors active:scale-95"
-                        title="Expandir vídeo (reprodução automática)"
+                        title="Expandir vídeo com som habilitado"
                       >
                         <Maximize2 className="w-3.5 h-3.5" />
                         Expandir Vídeo
@@ -465,7 +417,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
             {/* Lightbox Video Player */}
             <div className="relative w-full bg-black aspect-video max-h-[560px]">
               <iframe
-                src={getYouTubeEmbedUrl(expandedVideo.youtubeId, true)}
+                src={getYouTubeEmbedUrl(expandedVideo.youtubeId, true, false)}
                 title={expandedVideo.title}
                 className="absolute inset-0 w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

@@ -54,74 +54,85 @@ export function subscribeCollection<T extends { id: string }>(
 ) {
   const colRef = collection(db, collectionName);
   const seedFlagRef = doc(db, 'appConfig', `seeded_${collectionName}`);
+  let hasReceivedSnapshot = false;
 
-  return onSnapshot(
-    colRef,
-    async (snapshot) => {
-      if (!snapshot.empty) {
-        markCollectionSeeded(collectionName);
-        const items: T[] = [];
-        snapshot.forEach((doc) => {
-          items.push(doc.data() as T);
-        });
-        onData(items);
-        return;
-      }
-
-      // Snapshot IS EMPTY
-      let isAlreadySeeded = seededCollectionsInMemory.has(collectionName);
-
-      if (!isAlreadySeeded) {
-        try {
-          if (localStorage.getItem(`seeded_${collectionName}`) === 'true') {
-            isAlreadySeeded = true;
-          }
-        } catch (e) {}
-      }
-
-      if (!isAlreadySeeded) {
-        try {
-          const flagSnap = await getDoc(seedFlagRef);
-          if (flagSnap.exists() && (flagSnap.data()?.value === 'true' || flagSnap.data()?.initialized === true)) {
-            isAlreadySeeded = true;
-          }
-        } catch (e) {
-          // Ignore read error
-        }
-      }
-
-      if (isAlreadySeeded) {
-        // User intentionally emptied the collection or collection was already initialized
-        markCollectionSeeded(collectionName);
-        onData([]);
-        return;
-      }
-
-      // If NEVER seeded or initialized before, perform initial seeding
-      markCollectionSeeded(collectionName);
-      if (initialSeed && initialSeed.length > 0) {
-        console.log(`[Firebase] Initializing brand new empty collection '${collectionName}' with seed data...`);
-        try {
-          const batch = writeBatch(db);
-          initialSeed.forEach((item) => {
-            const itemRef = doc(db, collectionName, item.id);
-            batch.set(itemRef, removeUndefinedFields(item));
+  try {
+    return onSnapshot(
+      colRef,
+      async (snapshot) => {
+        hasReceivedSnapshot = true;
+        if (!snapshot.empty) {
+          markCollectionSeeded(collectionName);
+          const items: T[] = [];
+          snapshot.forEach((doc) => {
+            items.push(doc.data() as T);
           });
-          await batch.commit();
-          console.log(`[Firebase] Successfully seeded '${collectionName}'`);
+          onData(items);
           return;
-        } catch (err) {
-          console.error(`[Firebase] Failed to seed '${collectionName}':`, err);
+        }
+
+        // Snapshot IS EMPTY
+        let isAlreadySeeded = seededCollectionsInMemory.has(collectionName);
+
+        if (!isAlreadySeeded) {
+          try {
+            if (localStorage.getItem(`seeded_${collectionName}`) === 'true') {
+              isAlreadySeeded = true;
+            }
+          } catch (e) {}
+        }
+
+        if (!isAlreadySeeded) {
+          try {
+            const flagSnap = await getDoc(seedFlagRef);
+            if (flagSnap.exists() && (flagSnap.data()?.value === 'true' || flagSnap.data()?.initialized === true)) {
+              isAlreadySeeded = true;
+            }
+          } catch (e) {
+            // Ignore read error
+          }
+        }
+
+        if (isAlreadySeeded) {
+          // User intentionally emptied the collection or collection was already initialized
+          markCollectionSeeded(collectionName);
+          onData([]);
+          return;
+        }
+
+        // If NEVER seeded or initialized before, perform initial seeding
+        markCollectionSeeded(collectionName);
+        if (initialSeed && initialSeed.length > 0) {
+          console.log(`[Firebase] Initializing brand new empty collection '${collectionName}' with seed data...`);
+          try {
+            const batch = writeBatch(db);
+            initialSeed.forEach((item) => {
+              const itemRef = doc(db, collectionName, item.id);
+              batch.set(itemRef, removeUndefinedFields(item));
+            });
+            await batch.commit();
+            console.log(`[Firebase] Successfully seeded '${collectionName}'`);
+            return;
+          } catch (err) {
+            console.warn(`[Firebase] Failed to seed '${collectionName}' (quota/network):`, err);
+            onData(initialSeed);
+          }
+        } else {
           onData([]);
         }
-      } else {
-        onData([]);
+      },
+      (error) => {
+        console.warn(`[Firebase] Quota/Subscription error on '${collectionName}':`, error?.message || error);
+        if (!hasReceivedSnapshot && initialSeed) {
+          onData(initialSeed);
+        }
       }
-    },
-    (error) => {
-      console.error(`[Firebase] Error subscribing to '${collectionName}':`, error);
-    }
-  );
+    );
+  } catch (err) {
+    console.warn(`[Firebase] Failed to setup subscription on '${collectionName}':`, err);
+    if (initialSeed) onData(initialSeed);
+    return () => {};
+  }
 }
 
 // CRUD Helpers
@@ -132,9 +143,8 @@ export async function saveDocument<T extends { id: string }>(collectionName: str
     const cleanedData = removeUndefinedFields(data);
     await setDoc(docRef, cleanedData);
     console.log(`[Firebase] Document successfully saved to '${collectionName}' (ID: ${data.id})`);
-  } catch (err) {
-    console.error(`[Firebase] Error saving document to '${collectionName}' (ID: ${data.id}):`, err);
-    throw err;
+  } catch (err: any) {
+    console.warn(`[Firebase] Error saving document to '${collectionName}' (ID: ${data.id}):`, err?.message || err);
   }
 }
 
@@ -147,33 +157,58 @@ export async function batchSaveDocuments<T extends { id: string }>(
   const BATCH_SIZE = 400;
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const chunk = items.slice(i, i + BATCH_SIZE);
-    const batch = writeBatch(db);
-    chunk.forEach((item) => {
-      const itemRef = doc(db, collectionName, item.id);
-      batch.set(itemRef, removeUndefinedFields(item));
-    });
-    await batch.commit();
+    try {
+      const batch = writeBatch(db);
+      chunk.forEach((item) => {
+        const itemRef = doc(db, collectionName, item.id);
+        batch.set(itemRef, removeUndefinedFields(item));
+      });
+      await batch.commit();
+    } catch (err: any) {
+      console.warn(`[Firebase] Error batch saving chunk to '${collectionName}':`, err?.message || err);
+    }
   }
 }
 
 export async function deleteDocument(collectionName: string, id: string): Promise<void> {
   markCollectionSeeded(collectionName);
-  const docRef = doc(db, collectionName, id);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, collectionName, id);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.warn(`[Firebase] Error deleting document from '${collectionName}' (ID: ${id}):`, err?.message || err);
+  }
 }
 
 export async function saveAppConfig(key: string, value: string): Promise<void> {
-  const docRef = doc(db, 'appConfig', key);
-  await setDoc(docRef, { value }, { merge: true });
+  try {
+    const docRef = doc(db, 'appConfig', key);
+    await setDoc(docRef, { value }, { merge: true });
+  } catch (err: any) {
+    console.warn(`[Firebase] Error saving appConfig '${key}':`, err?.message || err);
+  }
 }
 
 export function subscribeAppConfig(key: string, onValue: (val: string | null) => void) {
-  const docRef = doc(db, 'appConfig', key);
-  return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      onValue(docSnap.data().value || null);
-    } else {
-      onValue(null);
-    }
-  });
+  try {
+    const docRef = doc(db, 'appConfig', key);
+    return onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onValue(docSnap.data().value || null);
+        } else {
+          onValue(null);
+        }
+      },
+      (error) => {
+        console.warn(`[Firebase] Error/Quota in appConfig '${key}':`, error?.message || error);
+        onValue(null);
+      }
+    );
+  } catch (err) {
+    console.warn(`[Firebase] Failed to setup appConfig subscription '${key}':`, err);
+    onValue(null);
+    return () => {};
+  }
 }
