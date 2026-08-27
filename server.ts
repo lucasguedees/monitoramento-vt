@@ -36,9 +36,17 @@ async function startServer() {
   const CITIES_CONFIG = [
     {
       cityId: "lajeado",
-      cityName: "Lajeado/Estrela",
+      cityName: "Lajeado",
       riverName: "Rio Taquari",
       slug: "lajeado",
+      anaStation: "86580000",
+      fallbackBase: 13.79,
+    },
+    {
+      cityId: "estrela",
+      cityName: "Estrela",
+      riverName: "Rio Taquari",
+      slug: "lajeado", // Compartilha a estação de monitoramento Lajeado/Porto de Estrela
       anaStation: "86580000",
       fallbackBase: 13.79,
     },
@@ -253,7 +261,9 @@ async function startServer() {
     }
   };
 
-  // Schedule automated sync background task (Runs on server startup + every 15 minutes 24/7)
+  // Rotina de auto-sincronização periódica em segundo plano desativada momentaneamente a pedido do usuário.
+  // A sincronização sob demanda permanece 100% ativa via endpoint /api/sync-river (Botão "Sincronizar Agora").
+  /*
   setTimeout(() => {
     autoSyncRiverDataToFirestore().catch(console.error);
   }, 5000);
@@ -262,6 +272,7 @@ async function startServer() {
   setInterval(() => {
     autoSyncRiverDataToFirestore().catch(console.error);
   }, FIFTEEN_MINUTES_MS);
+  */
 
   app.get("/api/sync-river", syncRiverHandler);
   app.get("/api/sync-guaiba", syncRiverHandler);

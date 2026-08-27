@@ -3,7 +3,14 @@ import { City } from '../types';
 export const DEFAULT_CITIES: City[] = [
   {
     id: 'lajeado',
-    name: 'Lajeado/Estrela',
+    name: 'Lajeado',
+    riverName: 'Rio Taquari',
+    thresholds: { atencao: 15.0, alerta: 17.0, inundacao: 19.0 },
+    isDefault: true,
+  },
+  {
+    id: 'estrela',
+    name: 'Estrela',
     riverName: 'Rio Taquari',
     thresholds: { atencao: 15.0, alerta: 17.0, inundacao: 19.0 },
     isDefault: true,
@@ -57,6 +64,13 @@ export const DEFAULT_CITIES: City[] = [
     thresholds: { atencao: 10.0, alerta: 12.0, inundacao: 14.0 },
     isDefault: true,
   },
+  {
+    id: 'cruzeiro-do-sul',
+    name: 'Cruzeiro do Sul',
+    riverName: 'Rio Taquari',
+    thresholds: { atencao: 15.0, alerta: 17.0, inundacao: 19.0 },
+    isDefault: true,
+  },
 ];
 
 export function mergeWithDefaultCities(incoming: City[]): City[] {
@@ -64,17 +78,17 @@ export function mergeWithDefaultCities(incoming: City[]): City[] {
     return DEFAULT_CITIES;
   }
 
-  // Clone items to avoid mutating original objects directly
+  // Clone items and separate any old joint 'Lajeado/Estrela' or 'Lajeado / Estrela' entries
   const updated = incoming.map(city => {
-    if (city.id === 'lajeado' && city.name === 'Lajeado') {
-      return { ...city, name: 'Lajeado/Estrela' };
+    if (city.id === 'lajeado' && (city.name === 'Lajeado/Estrela' || city.name === 'Lajeado / Estrela')) {
+      return { ...city, name: 'Lajeado' };
     }
     return city;
   });
 
   const existingIds = new Set(updated.map(c => c.id));
 
-  // Add missing default cities
+  // Add missing default cities (including Estrela, Cruzeiro do Sul, etc.)
   DEFAULT_CITIES.forEach(defCity => {
     if (!existingIds.has(defCity.id)) {
       updated.push(defCity);

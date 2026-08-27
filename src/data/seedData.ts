@@ -20,7 +20,9 @@ export function generateInitialSeedReadings(): RiverReading[] {
   // Base river levels per city in meters matching current real data
   const cityBases: Record<string, { base: number; peak: number; phaseShift: number }> = {
     'lajeado': { base: 13.2, peak: 13.8, phaseShift: 0 },
+    'estrela': { base: 13.2, peak: 13.8, phaseShift: 0 },
     'arroio-do-meio': { base: 13.2, peak: 13.8, phaseShift: 0 },
+    'cruzeiro-do-sul': { base: 13.2, peak: 13.8, phaseShift: 0 },
     'bom-retiro-do-sul': { base: 10.2, peak: 10.9, phaseShift: 1 },
     'taquari': { base: 7.8, peak: 8.4, phaseShift: 2 },
     'roca-sales': { base: 7.2, peak: 7.8, phaseShift: 2 },

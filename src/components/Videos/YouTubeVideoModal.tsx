@@ -1,57 +1,100 @@
-import React, { useState, useEffect } from 'react';
-import { X, Youtube, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Youtube, AlertCircle, Sparkles, CheckCircle2, PlusCircle, MapPin, Building2 } from 'lucide-react';
 import { YouTubeVideo } from '../../types';
-import { extractYouTubeId, getYouTubeThumbnailUrl, getYouTubeEmbedUrl } from '../../utils/youtubeUtils';
+import { extractYouTubeId, getYouTubeThumbnailUrl } from '../../utils/youtubeUtils';
 
 interface YouTubeVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (videoData: Omit<YouTubeVideo, 'id' | 'createdAt'> & { id?: string }) => void;
   editingVideo?: YouTubeVideo | null;
+  existingCities?: string[];
 }
 
-const CATEGORIES: string[] = [
-  'Lajeado / Estrela',
+const DEFAULT_KNOWN_CITIES: string[] = [
+  'Lajeado',
+  'Estrela',
   'Arroio do Meio',
   'Encantado',
   'Muçum',
   'Roca Sales',
   'Taquari',
-  'Bom Retiro do Sul'
+  'Bom Retiro do Sul',
+  'Cruzeiro do Sul',
+  'Santa Tereza',
+  'Colinas',
+  'Teutônia',
+  'Venâncio Aires',
+  'Candelária',
+  'Porto Alegre',
+  'Canoas',
+  'São Leopoldo',
+  'Novo Hamburgo',
+  'Eldorado do Sul',
+  'Guaíba'
 ];
 
 export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  editingVideo
+  editingVideo,
+  existingCities = []
 }) => {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<string>('Lajeado / Estrela');
+  const [selectedCityOption, setSelectedCityOption] = useState<string>('Lajeado');
+  const [customCityName, setCustomCityName] = useState<string>('');
+  const [isCustomCity, setIsCustomCity] = useState<boolean>(false);
   const [description, setDescription] = useState('');
   const [author, setAuthor] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Combine default known cities with any provided existing cities uniquely
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>(DEFAULT_KNOWN_CITIES);
+    existingCities.forEach(c => {
+      if (c && c.trim()) set.add(c.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [existingCities]);
+
   useEffect(() => {
     if (editingVideo) {
       setYoutubeUrl(editingVideo.youtubeUrl);
       setTitle(editingVideo.title);
-      setCategory(editingVideo.category);
+      
+      const currentCat = (editingVideo.category === 'Lajeado / Estrela' ? 'Lajeado' : editingVideo.category || '').trim();
+      if (cityOptions.includes(currentCat)) {
+        setSelectedCityOption(currentCat);
+        setIsCustomCity(false);
+        setCustomCityName('');
+      } else if (currentCat) {
+        setSelectedCityOption('__CUSTOM__');
+        setIsCustomCity(true);
+        setCustomCityName(currentCat);
+      } else {
+        setSelectedCityOption('Lajeado');
+        setIsCustomCity(false);
+        setCustomCityName('');
+      }
+
       setDescription(editingVideo.description || '');
       setAuthor(editingVideo.author || '');
       setIsFeatured(editingVideo.isFeatured || false);
     } else {
       setYoutubeUrl('');
       setTitle('');
-      setCategory('Lajeado / Estrela');
+      setSelectedCityOption('Lajeado');
+      setIsCustomCity(false);
+      setCustomCityName('');
       setDescription('');
       setAuthor('');
       setIsFeatured(false);
     }
     setError(null);
-  }, [editingVideo, isOpen]);
+  }, [editingVideo, isOpen, cityOptions]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -86,12 +129,18 @@ export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
       return;
     }
 
+    const finalCategory = isCustomCity ? customCityName.trim() : selectedCityOption.trim();
+    if (!finalCategory) {
+      setError('Por favor, selecione ou digite o nome da cidade para este vídeo.');
+      return;
+    }
+
     onSave({
       id: editingVideo?.id,
       title: title.trim(),
       youtubeUrl: youtubeUrl.trim(),
       youtubeId: extractedId,
-      category,
+      category: finalCategory,
       description: description.trim(),
       author: author.trim(),
       isFeatured
@@ -197,43 +246,103 @@ export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
             />
           </div>
 
-          {/* Category */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Categoria *
+          {/* City / Category Selection & Custom City Option */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Cidade / Município *
               </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as YouTubeVideo['category'])}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCity(!isCustomCity);
+                  if (!isCustomCity) {
+                    setSelectedCityOption('__CUSTOM__');
+                  } else {
+                    setSelectedCityOption(cityOptions[0] || 'Lajeado');
+                  }
+                }}
+                className="text-[11px] font-bold text-red-600 dark:text-red-400 hover:text-red-500 flex items-center gap-1 cursor-pointer"
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                {isCustomCity ? (
+                  <>
+                    <Building2 className="w-3 h-3" />
+                    <span>Selecionar da lista</span>
+                  </>
+                ) : (
+                  <>
+                    <PlusCircle className="w-3 h-3" />
+                    <span>Cadastrar outra cidade</span>
+                  </>
+                )}
+              </button>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Autor / Fonte do Canal
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Defesa Civil RS / Canal Voluntário"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
-              />
-            </div>
+            {!isCustomCity ? (
+              <div className="relative">
+                <select
+                  value={selectedCityOption}
+                  onChange={(e) => {
+                    if (e.target.value === '__CUSTOM__') {
+                      setIsCustomCity(true);
+                      setSelectedCityOption('__CUSTOM__');
+                    } else {
+                      setSelectedCityOption(e.target.value);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                >
+                  <optgroup label="Cidades Cadastradas">
+                    {cityOptions.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Outra Localidade">
+                    <option value="__CUSTOM__">➕ Cadastrar outra cidade que não está na lista...</option>
+                  </optgroup>
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-1.5 animate-fadeIn">
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-red-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Digite o nome da cidade (Ex: Venâncio Aires, Candelária, Pelotas...)"
+                    value={customCityName}
+                    onChange={(e) => setCustomCityName(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-red-300 dark:border-red-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50 font-medium"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Esta cidade passará a aparecer automaticamente no menu de filtros da galeria de vídeos.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Author / Source */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Autor / Fonte do Canal (Opcional)
+            </label>
+            <input
+              type="text"
+              placeholder="Ex: Defesa Civil RS / Canal Voluntário"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            />
           </div>
 
           {/* Description */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Descrição / Resumo Informativo
+              Descrição / Resumo Informativo (Opcional)
             </label>
             <textarea
               rows={3}
@@ -282,3 +391,4 @@ export const YouTubeVideoModal: React.FC<YouTubeVideoModalProps> = ({
     </div>
   );
 };
+

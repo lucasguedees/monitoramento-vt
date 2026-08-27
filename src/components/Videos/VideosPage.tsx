@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Youtube,
   Play,
@@ -15,7 +15,8 @@ import {
   Info,
   Maximize2,
   X,
-  Layers
+  Layers,
+  MapPin
 } from 'lucide-react';
 import { YouTubeVideo } from '../../types';
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from '../../utils/youtubeUtils';
@@ -29,17 +30,6 @@ interface VideosPageProps {
   onOpenAdminAuth: () => void;
 }
 
-const CATEGORIES = [
-  'Todos',
-  'Lajeado / Estrela',
-  'Arroio do Meio',
-  'Encantado',
-  'Muçum',
-  'Roca Sales',
-  'Taquari',
-  'Bom Retiro do Sul'
-] as const;
-
 export const VideosPage: React.FC<VideosPageProps> = ({
   videos,
   onOpenAddModal,
@@ -52,6 +42,37 @@ export const VideosPage: React.FC<VideosPageProps> = ({
   const [expandedVideo, setExpandedVideo] = useState<YouTubeVideo | null>(null);
   const [playingInlineVideoId, setPlayingInlineVideoId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Dynamic categories: Only cities where there is actually at least 1 video registered, plus "Todos"
+  const availableCategories = useMemo(() => {
+    const categoryCounts = new Map<string, number>();
+
+    videos.forEach((v) => {
+      const cat = (v.category || '').trim();
+      if (cat) {
+        categoryCounts.set(cat, (categoryCounts.get(cat) || 0) + 1);
+      }
+    });
+
+    const uniqueCities = Array.from(categoryCounts.keys()).sort((a, b) =>
+      a.localeCompare(b, 'pt-BR')
+    );
+
+    return {
+      categories: ['Todos', ...uniqueCities],
+      counts: categoryCounts
+    };
+  }, [videos]);
+
+  // If the active filter city no longer has any registered videos, reset to 'Todos'
+  useEffect(() => {
+    if (
+      selectedCategory !== 'Todos' &&
+      !availableCategories.categories.includes(selectedCategory)
+    ) {
+      setSelectedCategory('Todos');
+    }
+  }, [availableCategories.categories, selectedCategory]);
 
   // Close expanded video modal when pressing the Escape key
   useEffect(() => {
@@ -71,31 +92,20 @@ export const VideosPage: React.FC<VideosPageProps> = ({
   }, [expandedVideo]);
 
   // Filtered list
-  const filteredVideos = videos.filter(video => {
+  const filteredVideos = videos.filter((video) => {
     let matchesCategory = false;
     if (selectedCategory === 'Todos') {
       matchesCategory = true;
-    } else if (video.category === selectedCategory) {
-      matchesCategory = true;
     } else {
-      // Smart matching for city name categories
-      const cleanCat = selectedCategory.toLowerCase();
-      const videoCat = (video.category || '').toLowerCase();
-      const videoTitle = (video.title || '').toLowerCase();
-      const videoDesc = (video.description || '').toLowerCase();
-
-      // Check key parts of selectedCategory (e.g. "lajeado", "estrela", "arroio do meio", "encantado", "muçum", "roca sales", "taquari", "bom retiro", "santa tereza")
-      const keywords = cleanCat.split('/').map(s => s.trim()).filter(Boolean);
-      const matchesKeyword = keywords.some(kw => kw.length >= 3 && (videoCat.includes(kw) || videoTitle.includes(kw) || videoDesc.includes(kw)));
-
-      if (matchesKeyword) {
-        matchesCategory = true;
-      }
+      const selected = selectedCategory.trim().toLowerCase();
+      const videoCat = (video.category || '').trim().toLowerCase();
+      matchesCategory = videoCat === selected;
     }
 
     const matchesSearch =
       video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (video.description && video.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (video.category && video.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (video.author && video.author.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesCategory && matchesSearch;
@@ -128,7 +138,7 @@ export const VideosPage: React.FC<VideosPageProps> = ({
             </h1>
 
             <p className="text-sm text-slate-300 leading-relaxed">
-              Explore miniaturas de transmissões ao vivo, boletins informativos da Defesa Civil e matérias sobre os rios do RS. Clique em qualquer miniatura ou no botão para expandir a exibição.
+              Explore miniaturas de transmissões ao vivo, boletins informativos da Defesa Civil e matérias sobre os rios do RS. Clique em qualquer miniatura ou no botão para assistir.
             </p>
           </div>
 
@@ -148,21 +158,34 @@ export const VideosPage: React.FC<VideosPageProps> = ({
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-md space-y-4">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           
-          {/* Category Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  selectedCategory === cat
-                    ? 'bg-red-600 text-white shadow-md'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Dynamic Category Tabs: ONLY cities with actual videos */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none flex-wrap">
+            {availableCategories.categories.map((cat) => {
+              const count = cat === 'Todos' ? videos.length : (availableCategories.counts.get(cat) || 0);
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <span
+                    className={`px-1.5 py-0.5 text-[10px] rounded-full font-extrabold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Search Box */}

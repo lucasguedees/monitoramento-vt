@@ -195,7 +195,7 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {comparisonMode
                   ? 'Comparação direta das curvas de cota entre cidades do Vale do Taquari'
-                  : `Evolução temporal do Rio Taquari em ${activeCity?.name || 'Lajeado/Estrela'} com cotas de alerta`}
+                  : `Evolução temporal do Rio Taquari em ${activeCity?.name || 'Lajeado'} com cotas de alerta`}
               </p>
             </div>
           </div>

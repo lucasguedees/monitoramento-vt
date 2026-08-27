@@ -423,21 +423,11 @@ export default function App() {
     }
   };
 
-  // Automated background sync effect (initial fetch on load + every 10 minutes)
-  useEffect(() => {
-    performSilentAutoSync(false);
-
-    const interval = setInterval(() => {
-      performSilentAutoSync(false);
-    }, 10 * 60 * 1000); // 10 minutes
-
-    return () => clearInterval(interval);
-  }, []);
+  // Auto-sincronização automática em segundo plano desativada momentaneamente a pedido do usuário.
+  // A sincronização manual sob demanda via botão "Sincronizar Agora" está plenamente operacional.
 
   const handleSyncAutomatedReadings = () => {
-    requireAdminAuth('Sincronizar medições automatizadas dos rios', () => {
-      performSilentAutoSync(true);
-    });
+    performSilentAutoSync(true);
   };
 
   const handleSaveReading = (readingData: Omit<RiverReading, 'id' | 'createdAt'> & { id?: string }) => {
@@ -978,19 +968,19 @@ export default function App() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl font-medium shadow-inner">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <span>Auto-Sync (a cada 10 min) {lastAutoSyncedAt ? `• ${lastAutoSyncedAt}` : ''}</span>
+                <div 
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 border border-slate-700/80 text-slate-300 text-xs rounded-xl font-medium shadow-inner"
+                  title="Auto-sincronização periódica desativada momentaneamente. Clique em 'Sincronizar Agora' para atualizar sob demanda."
+                >
+                  <span className="inline-flex h-2 w-2 rounded-full bg-amber-400"></span>
+                  <span>Auto-Sync: Desativada {lastAutoSyncedAt ? `• Última sinc: ${lastAutoSyncedAt}` : ''}</span>
                 </div>
 
                 <button
                   onClick={handleSyncAutomatedReadings}
                   disabled={isSyncing}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer active:scale-95 disabled:opacity-50"
-                  title="Sincronizar medições automaticamente das estações de monitoramento (Lajeado/Estrela, Arroio do Meio, Bom Retiro do Sul, Taquari, Encantado, Muçum, Roca Sales, Santa Tereza)"
+                  title="Sincronizar medições automaticamente das estações de monitoramento (Lajeado, Estrela, Arroio do Meio, Bom Retiro do Sul, Taquari, Encantado, Muçum, Roca Sales, Santa Tereza)"
                 >
                   <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}</span>
@@ -1244,6 +1234,10 @@ export default function App() {
         }}
         onSave={handleSaveVideo}
         editingVideo={editingVideo}
+        existingCities={[
+          ...cities.map((c) => c.name),
+          ...videos.map((v) => v.category).filter(Boolean)
+        ]}
       />
 
       {/* Admin Authorization PIN Modal */}
