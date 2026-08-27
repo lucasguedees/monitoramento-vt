@@ -58,11 +58,11 @@ const ShelterOverviewCardsComponent: React.FC<ShelterOverviewCardsProps> = ({
       <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
               <Building className="w-5 h-5 text-indigo-400" />
               Abrigos Cadastrados no Vale do Taquari
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs font-medium text-slate-300 mt-0.5">
               Filtre os abrigos por município para visualizar todos os locais de acolhimento da cidade selecionada
             </p>
           </div>

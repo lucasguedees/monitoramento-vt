@@ -203,16 +203,29 @@ export const VideosPage: React.FC<VideosPageProps> = ({
         </div>
       </div>
 
-      {/* Videos Grid */}
+      {/* Videos Grid Header */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-red-500" />
-            Vídeos Disponíveis ({filteredVideos.length})
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Todas as miniaturas estão rodando automaticamente. Clique em &quot;Expandir com Som&quot; para assistir com áudio.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 dark:bg-slate-900/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-950 dark:text-white tracking-tight flex items-center gap-2.5">
+                <span>Vídeos Disponíveis</span>
+                <span className="px-2.5 py-0.5 text-xs font-black bg-red-600 text-white rounded-full shadow-sm">
+                  {filteredVideos.length}
+                </span>
+              </h3>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Transmissões e reportagens em tempo real ({selectedCategory === 'Todos' ? 'Todas as cidades' : `Filtrado por: ${selectedCategory}`})
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 self-start sm:self-auto">
+            💡 Clique em &quot;Expandir com Som&quot; para assistir com áudio
+          </div>
         </div>
 
         {filteredVideos.length === 0 ? (

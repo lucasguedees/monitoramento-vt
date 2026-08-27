@@ -31,17 +31,17 @@ const CityOverviewCardsComponent: React.FC<CityOverviewCardsProps> = ({
 
   return (
     <div id="city-overview-section" className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-cyan-600" />
+          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
             Situação Atual por Cidade
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
             Últimas medições cadastradas e nível do Rio Taquari (clique para lançar ou alterar cotas)
           </p>
         </div>
-        <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-2.5 py-1 rounded-full">
+        <span className="text-xs font-bold text-slate-700 bg-slate-100 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full self-start sm:self-auto shadow-xs">
           {cities.length} Cidades Cadastradas
         </span>
       </div>

@@ -113,11 +113,11 @@ const ShelterReadingsTableComponent: React.FC<ShelterReadingsTableProps> = ({
       <div className="p-5 border-b border-slate-200 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-lg font-extrabold text-slate-950 dark:text-white flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Histórico Pretérito de Cadastros e Atualizações
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-0.5">
               Registro contínuo e histórico sem perda de dados pretéritos ({readings.length} lançamentos gravados)
             </p>
           </div>

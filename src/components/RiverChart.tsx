@@ -180,19 +180,19 @@ const RiverChartComponent: React.FC<RiverChartProps> = ({
               <ChartIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-extrabold text-slate-950 dark:text-white flex items-center gap-2">
                 Gráfico de Nível do Rio
                 {comparisonMode ? (
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold rounded-full border border-blue-200 dark:border-blue-800">
+                  <span className="text-xs px-2.5 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 font-bold rounded-full border border-blue-300 dark:border-blue-700 shadow-xs">
                     Modo Comparativo
                   </span>
                 ) : (
-                  <span className="text-xs px-2 py-0.5 bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 font-semibold rounded-full border border-cyan-200 dark:border-cyan-800">
+                  <span className="text-xs px-2.5 py-0.5 bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200 font-bold rounded-full border border-cyan-300 dark:border-cyan-700 shadow-xs">
                     {activeCity?.name}
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
                 {comparisonMode
                   ? 'Comparação direta das curvas de cota entre cidades do Vale do Taquari'
                   : `Evolução temporal do Rio Taquari em ${activeCity?.name || 'Lajeado'} com cotas de alerta`}

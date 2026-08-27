@@ -80,13 +80,13 @@ const ReadingsTableComponent: React.FC<ReadingsTableProps> = ({
             <Table className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 group-hover:text-cyan-500 transition-colors">
+            <h2 className="text-lg font-extrabold text-slate-950 dark:text-white flex items-center gap-2 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
               Histórico de Registros de Nível do Rio
-              <span className="text-xs font-normal text-slate-500 dark:text-slate-400 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 shadow-xs">
                 {readings.length}
               </span>
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
               {isExpanded 
                 ? `${filteredReadings.length} medições encontradas no histórico` 
                 : 'Clique aqui para expandir e visualizar a tabela completa com todas as medições'}

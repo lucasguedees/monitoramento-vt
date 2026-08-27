@@ -131,19 +131,19 @@ const ShelterChartComponent: React.FC<ShelterChartProps> = ({
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-extrabold text-slate-950 dark:text-white flex items-center gap-2">
                 Evolução Temporal dos Abrigos
                 {activeShelter ? (
-                  <span className="text-xs px-2.5 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-semibold rounded-full border border-indigo-200 dark:border-indigo-800">
+                  <span className="text-xs px-2.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 font-bold rounded-full border border-indigo-300 dark:border-indigo-700 shadow-xs">
                     {activeShelter.name}
                   </span>
                 ) : (
-                  <span className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-full border border-slate-200 dark:border-slate-700">
+                  <span className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold rounded-full border border-slate-300 dark:border-slate-700 shadow-xs">
                     Visão Geral de Todos os Abrigos
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-0.5">
                 Histórico acumulado do número de pessoas e famílias desabrigadas acolhidas
               </p>
             </div>
